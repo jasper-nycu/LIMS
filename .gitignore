@@ -1,0 +1,7 @@
+# Environment variable files
+.env
+*.env
+.env.*
+
+# Explicitly allow the sample file to be committed
+!.env.sample
