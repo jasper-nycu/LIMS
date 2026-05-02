@@ -110,7 +110,7 @@ docker-compose up -d
 * **自動初始化：** 當 PostgreSQL 容器初次建立並啟動時，它會自動讀取我們寫好的 `database/init.sql`，完成所有資料表 (Tables) 的建立，並注入預設的六大權限角色與機台狀態等種子資料。
 
 #### 3. 驗證資料庫連線 (選用)
-容器啟動後，您可以開啟瀏覽器前往 **http://localhost:5050**。
+容器啟動後，您可以開啟瀏覽器前往 **[http://localhost:5050](http://localhost:5050)**。
 使用 `.env` 中設定的 Email 與 `PGADMIN_PASSWORD` 登入 pgAdmin。新增伺服器連線（Host 填寫 `postgres`, Port 填寫 `5432`），即可視覺化檢視剛剛初始化的 `lims_db` 資料庫結構與資料。
 
 ---
@@ -134,7 +134,7 @@ mvnw spring-boot:run
 
 * **背景知識：** 什麼是 `mvnw` (Maven Wrapper)？
 它是一個腳本，能確保所有團隊成員都使用完全相同版本的 Maven 建置工具。當您執行該腳本時，系統會自動下載專案所需的 Java 依賴套件並進行編譯，您無須在電腦上預先安裝 Maven。
-* 待終端機停止滾動，並顯示類似 `Started Application in X.XXX seconds` 的訊息後，即代表後端 API 伺服器已成功運行於 **http://localhost:8080**。
+* 待終端機停止滾動，並顯示類似 `Started Application in X.XXX seconds` 的訊息後，即代表後端 API 伺服器已成功運行於 **[http://localhost:8080](http://localhost:8080)**。
 
 ---
 
@@ -158,7 +158,7 @@ npm install
 npm run dev
 ```
 * **背景知識：** `npm run dev` 是一個捷徑指令。它會去尋找 `package.json` 的 `"scripts"` 區塊中定義的 `"dev"` 命令並執行它。
-* 伺服器啟動後，終端機會顯示一個本機網址（通常預設為 **http://localhost:5173**）。請在瀏覽器中開啟該網址，即可看見並操作 LIMS 系統介面！
+* 伺服器啟動後，終端機會顯示一個本機網址（通常預設為 **[http://localhost:5173](http://localhost:5173)**）。請在瀏覽器中開啟該網址，即可看見並操作 LIMS 系統介面！
 
 ---
 
