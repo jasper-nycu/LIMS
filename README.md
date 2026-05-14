@@ -38,14 +38,15 @@ LIMS (Laboratory Information Management System) 是一個專為高科技廠區與實驗室設計
 LIMS/
 ├── frontend/                 # React 前端專案目錄
 │   ├── node_modules/         # (啟動後自動產生) 存放所有下載的前端第三方套件
-│   ├── public/               # 靜態資源目錄 (例如 favicon 等不會被 Vite 打包壓縮的檔案)
-│   ├── src/                  # 前端原始碼核心目錄 (React Components, Views, Hooks)
+│   ├── public/               # 靜態資源目錄
+│   ├── src/                  # 前端原始碼核心目錄 (React Components, Views)
 │   ├── .gitignore            # 設定 Git 版控應忽略的前端檔案 (如 node_modules)
 │   ├── eslint.config.js      # ESLint 程式碼風格與語法檢查工具的設定檔
 │   ├── index.html            # 前端應用的進入點 (Entry point) 與根 HTML
 │   ├── package-lock.json     # 鎖定當前所有依賴套件的精確版本號，確保團隊環境一致
 │   ├── package.json          # 記錄前端專案資訊、依賴套件清單與自訂的 npm 執行腳本
-│   ├── README.md             # 專屬於前端子專案的說明文件
+│   ├── postcss.config.js     # 讀取 Tailwind CSS 
+│   ├── README.md             # 整個專案的說明文件
 │   ├── tsconfig.app.json     # 針對 React 應用程式的 TypeScript 編譯設定
 │   ├── tsconfig.json         # TypeScript 基礎設定檔 (繼承並整合其他 tsconfig)
 │   ├── tsconfig.node.json    # 針對 Node.js 環境 (如 vite.config.ts) 的 TypeScript 設定
