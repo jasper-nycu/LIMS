@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { Header, type UserProfile, type NotificationData } from './components/layout/Header';
 import { Sidebar } from './components/layout/Sidebar';
+import { FabRequestView } from './views/FabRequestView';
 
 const App: React.FC = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(true);
@@ -20,6 +21,18 @@ const App: React.FC = () => {
   const toggleSidebar = () => setIsSidebarOpen(prev => !prev);
   const navigateToProfile = () => setActiveView('view-my-profile');
   
+  // Function to bridge views with the header notifications
+  const addNotification = (title: string, desc: string, type: 'info' | 'success' | 'error') => {
+    const newNotif: NotificationData = {
+      id: Date.now().toString(),
+      title,
+      desc,
+      type
+    };
+    setNotifications(prev => [newNotif, ...prev]);
+    setHasNew(true); // Light up the red dot
+  };
+
   const handleMarkAsRead = () => {
     if (notifications.length > 0) {
       setHasNew(false);
@@ -59,7 +72,7 @@ const App: React.FC = () => {
         notifications={notifications}
         onDeleteNotification={handleDeleteNotif}
         hasNew={hasNew}
-        onMarkAsRead={handleMarkAsRead}
+        onMarkAsRead={() => setHasNew(false)}
       />
 
       <div className="flex flex-1 overflow-hidden relative">
@@ -70,10 +83,20 @@ const App: React.FC = () => {
           onViewChange={setActiveView} 
           language={language} 
         />
+
         <main className="flex-1 overflow-y-auto p-4 md:p-8 bg-slate-50 transition-all custom-scrollbar">
-          <div className="max-w-7xl mx-auto bg-white p-6 md:p-10 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-center min-h-[60vh]">
-            {renderContent()}
-          </div>
+          {activeView === 'view-factory-request' ? (
+            <FabRequestView 
+              language={language} 
+              onNotify={addNotification}
+            />
+          ) : (
+            <div className="max-w-7xl mx-auto bg-white p-6 md:p-10 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-center min-h-[60vh]">
+              <h1 className="text-2xl md:text-3xl font-bold text-slate-200 uppercase tracking-[0.25em] text-center select-none">
+                {renderContent()}
+              </h1>
+            </div>
+          )}
         </main>
       </div>
     </div>
