@@ -1,4 +1,4 @@
-# ?? LIMS 前端架構 (Frontend Architecture)
+# LIMS 前端架構 (Frontend Architecture)
 
 本前端專案是 LIMS 雲原生系統的使用者介面，採用 React 18 + Vite + TypeScript 構建，並使用 Tailwind CSS v4 進行樣式開發。我們遵循「關注點分離 (Separation of Concerns)」原則，將介面拆分為佈局框架、頁面視圖與原子組件。
 
