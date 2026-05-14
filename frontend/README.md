@@ -1,73 +1,75 @@
-# React + TypeScript + Vite
+# ?? LIMS 前端架構 (Frontend Architecture)
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+本前端專案是 LIMS 雲原生系統的使用者介面，採用 React 18 + Vite + TypeScript 構建，並使用 Tailwind CSS v4 進行樣式開發。我們遵循「關注點分離 (Separation of Concerns)」原則，將介面拆分為佈局框架、頁面視圖與原子組件。
 
-Currently, two official plugins are available:
+## 專案架構 (Project Structure)
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
-
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```text
+frontend/src/
+├── assets/              # 靜態資源 (圖片、SVG 圖示等)
+├── components/          # 可重複使用的組件 (Reusable Components)
+│   └── layout/          # 全域佈局組件 (應用程式整體框架)
+│       ├── __tests__/   # 佈局組件的單元測試 (Header, Sidebar 測試)
+│       ├── Header.tsx   # 頂部導覽列 (語系切換、通知系統、Stateless Profile)
+│       └── Sidebar.tsx  # 側邊導覽選單 (負責視圖導覽與 RWD 縮放)
+│
+├── views/               # 頁面視圖 (Page Views，對應各個功能頁面)
+│   ├── AuthView.tsx              # 登入與註冊頁面
+│   ├── FabRequestView.tsx        # 廠區建立委託單
+│   ├── LabOperationsView.tsx     # 實驗室人員操作
+│   ├── ManagerDashboardView.tsx  # 實驗室主管簽核
+│   ├── CapacityAnalyticsView.tsx # 機台分析圖表
+│   └── MyProfileView.tsx         # 個人帳號設定
+│
+├── test/                # 測試環境配置
+│   └── setup.ts         # Vitest 環境設定 (引入 jest-dom 擴充)
+│
+├── App.tsx              # 應用程式根組件 (負責全域狀態管理與視圖跳轉邏輯)
+├── main.tsx             # 程式進入點 (負責將 React 掛載至 HTML DOM)
+└── index.css            # 全域樣式設定與 Tailwind CSS v4 主題定義
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+### 核心設計重點
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+* **佈局與視圖分離 (Layout & Views)**：將導覽框架（Header/Sidebar）與業務頁面（Views）解耦，讓開發者能專注於頁面功能開發。
+* **自動化測試 (Unit Testing)**：在各組件目錄下建立 `__tests__` 資料夾，確保程式碼品質。
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+---
+
+## 啟動指南 (Getting Started)
+
+請確保您的電腦已安裝 [Node.js](https://nodejs.org/) 環境，然後依照以下步驟操作：
+
+### Step 1: 安裝依賴套件
+
+```bash
+cd frontend
+npm install
 ```
+
+* **npm install**：讀取 `package.json` 並下載專案所需的所有工具（React, Tailwind, Vitest 等）到 `node_modules` 資料夾中。
+
+### Step 2: 啟動 React 前端開發伺服器
+
+```bash
+npm run dev
+```
+
+* **npm run dev**：Vite 提供「熱更新 (HMR)」功能，修改程式碼後瀏覽器會立即反映變更。
+* **預設網址**：**[http://localhost:5173](https://www.google.com/search?q=http://localhost:5173)**。
+
+### Step 3: 執行前端單元測試
+
+在提交程式碼前，請務必執行測試以確保核心邏輯（如 Stateless 顯示、語系切換）正常：
+
+```bash
+npm run test
+```
+
+---
+
+## 開發規範
+
+* **編碼標準**：為了避免編碼錯誤或亂碼，所有的程式碼、變數名稱及註解 **統一使用英文 (English)**。
+* **樣式使用**：採用 Tailwind CSS v4 語法，自定義主題變數（如 `--color-corporate-blue`）定義在 `index.css` 中。
+* **元件開發**：優先使用函數式組件 (Functional Components) 與 React Hooks。
