@@ -5,6 +5,8 @@ import { Sidebar } from './components/layout/Sidebar';
 import { FabRequestView } from './views/FabRequestView';
 import { LabOperationsView } from './views/LabOperationsView';
 import { ManagerDashboardView } from './views/ManagerDashboardView';
+// import { CapacityAnalyticsView } from './views/CapacityAnalyticsView';
+import { MyProfileView } from './views/MyProfileView';
 
 const App: React.FC = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(true);
@@ -18,7 +20,12 @@ const App: React.FC = () => {
   const [hasNew, setHasNew] = useState<boolean>(false); 
 
   // User set to null (Public/Stateless mode)
-  const [user] = useState<UserProfile | null>(null);
+  const [user, setUser] = useState<UserProfile | null>(null);
+
+  const handleLogout = () => {
+    setUser(null);
+    setActiveView('view-factory-request'); // Redirect on logout
+  };
 
   const toggleSidebar = () => setIsSidebarOpen(prev => !prev);
   const navigateToProfile = () => setActiveView('view-my-profile');
@@ -61,6 +68,15 @@ const App: React.FC = () => {
         return <LabOperationsView language={language} onNotify={addNotification} />;
       case 'view-manager-dashboard':
         return <ManagerDashboardView language={language} onNotify={addNotification} />;
+      // case 'view-capacity-analytics':
+      //   return <CapacityAnalyticsView language={language} machines={machines} />;
+      case 'view-my-profile':
+        return <MyProfileView 
+          language={language} 
+          user={user} 
+          onUpdateUser={setUser} 
+          onLogout={handleLogout} 
+        />;
       default:
         const titles: Record<string, { en: string; tw: string }> = {
           'view-manager-dashboard': { en: 'Manager Dashboard', tw: '簽核儀表板' },
