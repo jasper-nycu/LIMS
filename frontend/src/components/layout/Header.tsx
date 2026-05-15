@@ -10,7 +10,7 @@ export interface NotificationData {
   id: string;
   title: string;
   desc: string;
-  type: 'info' | 'success' | 'error';
+  type: 'info' | 'success' | 'error' | 'warning';
 }
 
 interface HeaderProps {
@@ -21,6 +21,7 @@ interface HeaderProps {
   onProfileClick: () => void;
   notifications: NotificationData[];
   onDeleteNotification: (id: string) => void;
+  onClearAllNotifications: () => void;
   hasNew: boolean;
   onMarkAsRead: () => void;
 }
@@ -33,22 +34,35 @@ export const Header: React.FC<HeaderProps> = ({
   onProfileClick,
   notifications,
   onDeleteNotification,
+  onClearAllNotifications,
   hasNew,
   onMarkAsRead
 }) => {
   const [showNotifs, setShowNotifs] = useState(false);
+  const [isClearing, setIsClearing] = useState(false);
+
+  const handleClearAll = () => {
+    setIsClearing(true);
+    // Wait for the fade-out animation (300ms) to complete before actual deletion
+    setTimeout(() => {
+      onClearAllNotifications();
+      setIsClearing(false);
+    }, 300);
+  };
 
   // Localization Dictionary
   const i18n = {
     en: {
       title: 'System Notifications',
       empty: 'No new notifications',
-      new: 'New'
+      new: 'New',
+      clear: 'Clear All'
     },
     tw: {
       title: '系統通知',
       empty: '目前沒有新通知',
-      new: '則新訊息'
+      new: '則新訊息',
+      clear: '一鍵刪除'
     }
   };
 
@@ -64,7 +78,7 @@ export const Header: React.FC<HeaderProps> = ({
   return (
     <header className="sticky top-0 z-50 bg-white border-b border-slate-200 px-4 md:px-6 py-3 flex items-center justify-between shadow-sm relative">
       <div className="flex items-center gap-2 md:gap-3">
-        <button onClick={onToggleMenu} className="p-1.5 -ml-1 text-slate-500 hover:bg-slate-100 rounded-lg transition-colors focus:outline-none">
+        <button onClick={onToggleMenu} className="p-1.5 -ml-1 text-slate-500 hover:bg-slate-100 rounded-lg transition-colors focus:outline-none cursor-pointer">
           <span className="material-symbols-outlined text-[24px]">menu</span>
         </button>
         <div className="bg-corporate-blue p-1.5 md:p-2 rounded-lg text-white flex items-center justify-center">
@@ -79,13 +93,13 @@ export const Header: React.FC<HeaderProps> = ({
         {/* Sliding Language Switcher */}
         <div className="relative flex bg-slate-100 p-0.5 rounded-lg text-[11px] md:text-xs font-bold shadow-inner border border-slate-200 h-8 md:h-9">
           <div className="lang-pill" style={{ left: language === 'en' ? '2px' : '50%', width: 'calc(50% - 2px)' }} />
-          <button onClick={() => onLanguageChange('en')} className={`relative z-10 px-3 md:px-4 py-1 transition-colors duration-300 ${language === 'en' ? 'text-corporate-blue' : 'text-slate-500'}`}>EN</button>
-          <button onClick={() => onLanguageChange('tw')} className={`relative z-10 px-3 md:px-4 py-1 transition-colors duration-300 ${language === 'tw' ? 'text-corporate-blue' : 'text-slate-500'}`}>中文</button>
+          <button onClick={() => onLanguageChange('en')} className={`relative z-10 px-3 md:px-4 py-1 transition-colors duration-300 cursor-pointer ${language === 'en' ? 'text-corporate-blue' : 'text-slate-500'}`}>EN</button>
+          <button onClick={() => onLanguageChange('tw')} className={`relative z-10 px-3 md:px-4 py-1 transition-colors duration-300 cursor-pointer ${language === 'tw' ? 'text-corporate-blue' : 'text-slate-500'}`}>中文</button>
         </div>
 
         <div className="flex items-center gap-2 md:gap-4">
           <div className="relative">
-            <button onClick={handleToggleNotifs} className="relative p-1.5 md:p-2 text-slate-500 hover:bg-slate-100 rounded-full transition-colors focus:outline-none">
+            <button onClick={handleToggleNotifs} className="relative p-1.5 md:p-2 text-slate-500 hover:bg-slate-100 rounded-full transition-colors focus:outline-none cursor-pointer">
               <span className="material-symbols-outlined text-[22px] md:text-[24px]">notifications</span>
               {/* Red dot appears only if hasNew is true and there are messages */}
               {hasNew && notifications.length > 0 && (
@@ -99,15 +113,25 @@ export const Header: React.FC<HeaderProps> = ({
             {showNotifs && (
               <div className="absolute right-0 mt-3 w-72 md:w-80 glass-panel rounded-2xl p-4 z-50 animate-[fadeIn_0.2s_ease-out] shadow-xl border border-slate-200/60" onClick={(e) => e.stopPropagation()}>
                 <div className="flex justify-between items-center mb-4 px-1">
-                  <h3 className="text-sm font-bold text-slate-800">{ui.title}</h3>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-sm font-bold text-slate-800">{ui.title}</h3>
+                    {notifications.length > 0 && (
+                      <span className="text-[10px] font-bold text-white bg-red-500 px-2 py-0.5 rounded-full shadow-sm">
+                        {notifications.length} {ui.new}
+                      </span>
+                    )}
+                  </div>
                   {notifications.length > 0 && (
-                    <span className="text-[10px] font-bold text-white bg-red-500 px-2 py-0.5 rounded-full shadow-sm">
-                      {notifications.length} {ui.new}
-                    </span>
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); handleClearAll(); }}
+                      className="text-[10px] font-bold text-corporate-blue hover:text-blue-700 cursor-pointer transition-colors"
+                    >
+                      {ui.clear}
+                    </button>
                   )}
                 </div>
 
-                <div className="space-y-2 max-h-72 overflow-y-auto custom-scrollbar pr-1">
+                <div className={`space-y-2 max-h-72 overflow-y-auto custom-scrollbar pr-1 transition-all duration-300 transform ${isClearing ? 'opacity-0 translate-x-8 blur-sm' : 'opacity-100 translate-x-0'}`}>
                   {notifications.length > 0 ? (
                     notifications.map((notif) => (
                       <div key={notif.id} className="group relative flex justify-between items-start p-3 bg-white/50 rounded-xl border border-slate-100 transition-all">
@@ -118,7 +142,7 @@ export const Header: React.FC<HeaderProps> = ({
                             <p className="text-[10px] text-slate-500">{notif.desc}</p>
                           </div>
                         </div>
-                        <button onClick={() => onDeleteNotification(notif.id)} className="opacity-0 md:group-hover:opacity-100 text-slate-400 hover:text-red-500"><span className="material-symbols-outlined text-[16px]">close</span></button>
+                        <button onClick={() => onDeleteNotification(notif.id)} className="opacity-0 md:group-hover:opacity-100 text-slate-400 hover:text-red-500 cursor-pointer"><span className="material-symbols-outlined text-[16px]">close</span></button>
                       </div>
                     ))
                   ) : (

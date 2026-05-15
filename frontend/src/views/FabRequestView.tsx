@@ -29,7 +29,7 @@ const InfoModal: React.FC<CustomModalProps> = ({ isOpen, title, message, type, o
         <p className="text-sm text-slate-500 font-medium leading-relaxed">{message}</p>
         <button 
           onClick={onClose}
-          className="w-full mt-4 px-4 py-3 bg-slate-900 text-white text-sm font-bold rounded-xl hover:bg-slate-800 transition-all shadow-md active:scale-95"
+          className="w-full mt-4 px-4 py-3 bg-slate-900 text-white text-sm font-bold rounded-xl hover:bg-slate-800 transition-all shadow-md active:scale-95 cursor-pointer"
         >
           Understood
         </button>
@@ -48,7 +48,7 @@ interface RequestItem {
 
 export const FabRequestView: React.FC<{ 
   language: 'en' | 'tw'; 
-  onNotify: (title: string, desc: string, type: 'info' | 'success' | 'error') => void; 
+  onNotify: (title: string, desc: string, type: 'info' | 'success' | 'error' | 'warning') => void; 
 }> = ({ language, onNotify }) => {
   const labs = {
     LAB_RA: { en: 'Reliability Lab (RA)', tw: '可靠度實驗室 (RA)' },
@@ -179,7 +179,7 @@ export const FabRequestView: React.FC<{
               <label htmlFor="lab-select" className="text-xs font-bold text-slate-700 uppercase tracking-wider">{ui.targetLab}</label>
               <select 
                 id="lab-select"
-                className="w-full rounded-xl border-slate-200 text-sm py-3 px-4 font-semibold text-slate-700 focus:ring-corporate-blue"
+                className="w-full rounded-xl border-slate-200 text-sm py-3 px-4 font-semibold text-slate-700 focus:ring-corporate-blue cursor-pointer"
                 value={selectedLab}
                 onChange={(e) => setSelectedLab(e.target.value as any)}
               >
@@ -216,13 +216,13 @@ export const FabRequestView: React.FC<{
                 placeholder={ui.waferHint} value={waferInput} onChange={(e) => setWaferInput(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddWafer())}
               />
-              <button type="button" onClick={handleAddWafer} className="px-6 py-3 bg-white border border-slate-300 rounded-xl font-bold text-xs hover:bg-slate-100 shadow-sm active:scale-95">{ui.addBtn}</button>
+              <button type="button" onClick={handleAddWafer} className="px-6 py-3 bg-white border border-slate-300 rounded-xl font-bold text-xs hover:bg-slate-100 shadow-sm active:scale-95 cursor-pointer">{ui.addBtn}</button>
             </div>
             <div className="flex flex-wrap gap-2 mt-2 min-h-[32px]">
               {wafers.map(w => (
                 <span key={w} className="bg-corporate-blue text-white px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-2 animate-[zoomIn_0.2s_ease-out] shadow-sm">
                   {w}
-                  <button type="button" onClick={() => setWafers(wafers.filter(x => x !== w))} className="hover:text-red-200"><span className="material-symbols-outlined text-[16px]">close</span></button>
+                  <button type="button" onClick={() => setWafers(wafers.filter(x => x !== w))} className="hover:text-red-200 cursor-pointer"><span className="material-symbols-outlined text-[16px]">close</span></button>
                 </span>
               ))}
             </div>
@@ -233,7 +233,7 @@ export const FabRequestView: React.FC<{
               <label htmlFor="priority-select" className="text-xs font-bold text-slate-700 uppercase tracking-wider">{ui.priority}</label>
               <select 
                 id="priority-select"
-                className={`w-full rounded-xl border font-bold text-sm py-3 px-4 transition-all duration-300 ${getPriorityStyle()}`}
+                className={`w-full rounded-xl border font-bold text-sm py-3 px-4 transition-all duration-300 cursor-pointer ${getPriorityStyle()}`}
                 value={priority} onChange={(e) => setPriority(e.target.value)}
               >
                 <option value="NORMAL" className="bg-white text-emerald-700">{ui.priNormal}</option>
@@ -254,7 +254,7 @@ export const FabRequestView: React.FC<{
             />
           </div>
 
-          <button type="submit" className="w-full bg-corporate-blue text-white py-4 rounded-2xl font-bold shadow-lg hover:bg-blue-700 transition-all flex justify-center items-center gap-3 active:scale-[0.98]">
+          <button type="submit" className="w-full bg-corporate-blue text-white py-4 rounded-2xl font-bold shadow-lg hover:bg-blue-700 transition-all flex justify-center items-center gap-3 active:scale-[0.98] cursor-pointer">
             <span className="material-symbols-outlined">send</span>{ui.submitBtn}
           </button>
         </form>

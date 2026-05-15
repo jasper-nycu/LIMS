@@ -46,6 +46,10 @@ const App: React.FC = () => {
     if (updated.length === 0) setHasNew(false);
   };
 
+  const handleClearAllNotifs = () => {
+    setNotifications([]);
+  };
+
   const renderContent = () => {
     // Standardized View Injection
     switch (activeView) {
@@ -81,6 +85,7 @@ const App: React.FC = () => {
         onProfileClick={navigateToProfile}
         notifications={notifications}
         onDeleteNotification={handleDeleteNotif}
+        onClearAllNotifications={handleClearAllNotifs}
         hasNew={hasNew}
         onMarkAsRead={handleMarkAsRead}
       />

@@ -58,7 +58,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       `}>
         {/* Mobile Close Button */}
         <div className="md:hidden flex justify-end mb-2">
-          <button onClick={onToggle} className="p-1 text-slate-400 hover:text-slate-600 focus:outline-none">
+          <button onClick={onToggle} className="p-1 text-slate-400 hover:text-slate-600 focus:outline-none cursor-pointer">
             <span className="material-symbols-outlined">close</span>
           </button>
         </div>
@@ -75,7 +75,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   onViewChange(item.id);
                   if (window.innerWidth < 768) onToggle();
                 }}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all ${
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all cursor-pointer ${
                   isActive 
                     ? 'bg-corporate-blue text-white shadow-sm' 
                     : 'text-slate-600 hover:bg-slate-50 hover:text-corporate-blue'
