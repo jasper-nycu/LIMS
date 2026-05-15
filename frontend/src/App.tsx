@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { Header, type UserProfile, type NotificationData } from './components/layout/Header';
 import { Sidebar } from './components/layout/Sidebar';
 import { FabRequestView } from './views/FabRequestView';
+import { LabOperationsView } from './views/LabOperationsView';
 
 const App: React.FC = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(true);
@@ -22,15 +23,15 @@ const App: React.FC = () => {
   const navigateToProfile = () => setActiveView('view-my-profile');
   
   // Function to bridge views with the header notifications
-  const addNotification = (title: string, desc: string, type: 'info' | 'success' | 'error') => {
+  const addNotification = (_titleKey: string | null, fallbackTitle: string, desc: string, type: 'info' | 'success' | 'error' | 'warning' = 'info') => {
     const newNotif: NotificationData = {
       id: Date.now().toString(),
-      title,
+      title: fallbackTitle, // In a real app, titleKey would be used with i18n lookup
       desc,
       type
     };
     setNotifications(prev => [newNotif, ...prev]);
-    setHasNew(true); // Light up the red dot
+    setHasNew(true);
   };
 
   const handleMarkAsRead = () => {
@@ -46,19 +47,28 @@ const App: React.FC = () => {
   };
 
   const renderContent = () => {
-    const titles: Record<string, { en: string; tw: string }> = {
-      'view-factory-request': { en: 'Fab Request', tw: '建立委託單' },
-      'view-lab-operations': { en: 'Lab Operations', tw: '實驗室操作' },
-      'view-manager-dashboard': { en: 'Manager Dashboard', tw: '簽核儀表板' },
-      'view-capacity-analytics': { en: 'Capacity Analytics', tw: '產能分析' },
-      'view-my-profile': { en: 'My Profile', tw: '個人設定' }
-    };
-    const title = titles[activeView] || titles['view-factory-request'];
-    return (
-      <h1 className="text-2xl md:text-3xl font-bold text-slate-200 uppercase tracking-[0.25em] text-center select-none">
-        {language === 'en' ? title.en : title.tw}
-      </h1>
-    );
+    // Standardized View Injection
+    switch (activeView) {
+      case 'view-factory-request':
+        // Mapping simple notify to the standardized 4-param notify
+        return <FabRequestView language={language} onNotify={(t, d, tp) => addNotification(null, t, d, tp)} />;
+      case 'view-lab-operations':
+        return <LabOperationsView language={language} onNotify={addNotification} />;
+      default:
+        const titles: Record<string, { en: string; tw: string }> = {
+          'view-manager-dashboard': { en: 'Manager Dashboard', tw: '簽核儀表板' },
+          'view-capacity-analytics': { en: 'Capacity Analytics', tw: '產能分析' },
+          'view-my-profile': { en: 'My Profile', tw: '個人設定' }
+        };
+        const title = titles[activeView] || { en: 'Under Development', tw: '功能開發中' };
+        return (
+          <div className="max-w-7xl mx-auto bg-white p-6 md:p-10 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-center min-h-[60vh]">
+            <h1 className="text-2xl md:text-3xl font-bold text-slate-200 uppercase tracking-[0.25em] text-center select-none">
+              {language === 'en' ? title.en : title.tw}
+            </h1>
+          </div>
+        );
+    }
   };
 
   return (
@@ -72,7 +82,7 @@ const App: React.FC = () => {
         notifications={notifications}
         onDeleteNotification={handleDeleteNotif}
         hasNew={hasNew}
-        onMarkAsRead={() => setHasNew(false)}
+        onMarkAsRead={handleMarkAsRead}
       />
 
       <div className="flex flex-1 overflow-hidden relative">
@@ -85,18 +95,7 @@ const App: React.FC = () => {
         />
 
         <main className="flex-1 overflow-y-auto p-4 md:p-8 bg-slate-50 transition-all custom-scrollbar">
-          {activeView === 'view-factory-request' ? (
-            <FabRequestView 
-              language={language} 
-              onNotify={addNotification}
-            />
-          ) : (
-            <div className="max-w-7xl mx-auto bg-white p-6 md:p-10 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-center min-h-[60vh]">
-              <h1 className="text-2xl md:text-3xl font-bold text-slate-200 uppercase tracking-[0.25em] text-center select-none">
-                {renderContent()}
-              </h1>
-            </div>
-          )}
+          {renderContent()}
         </main>
       </div>
     </div>
