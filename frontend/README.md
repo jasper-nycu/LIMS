@@ -6,14 +6,17 @@
 
 ```text
 frontend/src/
-├── assets/              # 靜態資源 (圖片、SVG 圖示等)
-├── components/          # 可重複使用的組件 (Reusable Components)
-│   └── layout/          # 全域佈局組件 (應用程式整體框架)
-│       ├── __tests__/   # 佈局組件的單元測試 (Header, Sidebar 測試)
-│       ├── Header.tsx   # 頂部導覽列 (語系切換、通知系統、Stateless Profile)
+├── assets/              # 靜態資源
+├── components/          # 重複使用的組件
+│   └── layout/          # 全域佈局的組件
+│       ├── __tests__/   # 佈局組件的單元測試
+│       │
+│       ├── Header.tsx   # 頂部導覽列 (語系切換、通知、使用者資訊)
 │       └── Sidebar.tsx  # 側邊導覽選單 (負責視圖導覽與 RWD 縮放)
 │
-├── views/               # 頁面視圖 (Page Views，對應各個功能頁面)
+├── views/                        # 頁面視圖
+│   ├── __tests__/                # 頁面邏輯單元測試
+│   │
 │   ├── AuthView.tsx              # 登入與註冊頁面
 │   ├── FabRequestView.tsx        # 廠區建立委託單
 │   ├── LabOperationsView.tsx     # 實驗室人員操作
@@ -32,7 +35,8 @@ frontend/src/
 ### 核心設計重點
 
 * **佈局與視圖分離 (Layout & Views)**：將導覽框架（Header/Sidebar）與業務頁面（Views）解耦，讓開發者能專注於頁面功能開發。
-* **自動化測試 (Unit Testing)**：在各組件目錄下建立 `__tests__` 資料夾，確保程式碼品質。
+* **有限狀態機 (FSM) 驗證**：針對複雜業務實作嚴謹的狀態轉換邏輯（IDLE, PROCESSING, ALARM, MAINTENANCE）於測試中確保狀態變遷安全性。
+* **自動化測試 (Unit Testing)**：在 `components/` 與 `views/` 目錄下均建立 `__tests__` 資料夾。採用動態資料生成，確保測試環境無狀態。
 
 ---
 
