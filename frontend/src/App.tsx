@@ -4,6 +4,7 @@ import { Header, type UserProfile, type NotificationData } from './components/la
 import { Sidebar } from './components/layout/Sidebar';
 import { FabRequestView } from './views/FabRequestView';
 import { LabOperationsView } from './views/LabOperationsView';
+import { ManagerDashboardView } from './views/ManagerDashboardView';
 
 const App: React.FC = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(true);
@@ -58,6 +59,8 @@ const App: React.FC = () => {
         return <FabRequestView language={language} onNotify={(t, d, tp) => addNotification(null, t, d, tp)} />;
       case 'view-lab-operations':
         return <LabOperationsView language={language} onNotify={addNotification} />;
+      case 'view-manager-dashboard':
+        return <ManagerDashboardView language={language} onNotify={addNotification} />;
       default:
         const titles: Record<string, { en: string; tw: string }> = {
           'view-manager-dashboard': { en: 'Manager Dashboard', tw: '簽核儀表板' },
