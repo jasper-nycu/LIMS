@@ -7,13 +7,15 @@ interface MyProfileViewProps {
   user: UserProfile | null;
   onUpdateUser: (updatedUser: UserProfile) => void;
   onLogout: () => void;
+  onNotify: (titleKey: string | null, fallbackTitle: string, desc: string, type: 'info' | 'success' | 'error' | 'warning') => void;
 }
 
 export const MyProfileView: React.FC<MyProfileViewProps> = ({ 
   language, 
   user, 
   onUpdateUser, 
-  onLogout 
+  onLogout,
+  onNotify
 }) => {
   const i18n = {
     en: {
@@ -31,7 +33,10 @@ export const MyProfileView: React.FC<MyProfileViewProps> = ({
       role_fab_user: 'Fab User', role_public: 'Public',
       priv_all: 'Full System Access', priv_sec: 'Security Settings Control', priv_ana: 'Laboratory Analytics',
       priv_audit: 'Audit Logs Access', priv_req: 'Request Creation', priv_view: 'View Own Profile',
-      placeholder_user: 'Username'
+      placeholder_user: 'Username',
+      title_mr: 'Mr.', title_ms: 'Ms.', title_dr: 'Dr.',
+      modal_pwd_title: 'Change Password', modal_old_pwd: 'Current Password', modal_new_pwd: 'New Password', modal_confirm_pwd: 'Confirm New Password',
+      btn_cancel: 'Cancel', btn_confirm: 'Update Password'
     },
     tw: {
       title: '使用者檔案', desc: '管理您的個人資訊與系統安全設定。',
@@ -48,7 +53,10 @@ export const MyProfileView: React.FC<MyProfileViewProps> = ({
       role_fab_user: '廠區使用者', role_public: '一般大眾',
       priv_all: '完整系統存取權', priv_sec: '安全性設定控制', priv_ana: '實驗室產能分析',
       priv_audit: '稽核日誌存取', priv_req: '建立委託單', priv_view: '檢視個人檔案',
-      placeholder_user: '未命名使用者'
+      placeholder_user: '未命名使用者',
+      title_mr: '先生', title_ms: '女士', title_dr: '博士',
+      modal_pwd_title: '變更密碼', modal_old_pwd: '目前密碼', modal_new_pwd: '新密碼', modal_confirm_pwd: '確認新密碼',
+      btn_cancel: '取消', btn_confirm: '確認變更'
     }
   };
 
@@ -75,6 +83,10 @@ export const MyProfileView: React.FC<MyProfileViewProps> = ({
     is2FA: true
   });
 
+  // Password modal states
+  const [showPwdModal, setShowPwdModal] = useState(false);
+  const [pwdForm, setPwdForm] = useState({ oldPassword: '', newPassword: '', confirmPassword: '' });
+
   // Initials logic matching index.html
   const getInitials = (name: string) => {
     if (!name) return '';
@@ -88,6 +100,81 @@ export const MyProfileView: React.FC<MyProfileViewProps> = ({
   const displayRole = user?.role || 'ROLE_PUBLIC';
   const [showSuccess, setShowSuccess] = useState(false);
 
+  // Industrial Regex patterns for form guardrails
+  const regexName = /^[\u4e00-\u9fa5a-zA-Z\s]+$/;
+  const regexDept = /^[\u4e00-\u9fa5a-zA-Z0-9\s]+$/;
+  const regexEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const regexTel = /^(\+886-3|03)-\d{7}$/;
+  const regexExt = /^\d{7}$/;
+  const regexMobile = /^09\d{2}-\d{3}-\d{3}$/;
+
+  const handleToggle2FA = () => {
+    const nextState = !formData.is2FA;
+    setFormData({ ...formData, is2FA: nextState });
+    onNotify(
+      null,
+      'Security Settings Updated',
+      `Two-Factor Authentication (2FA) has been ${nextState ? 'enabled' : 'disabled'}.`,
+      nextState ? 'success' : 'warning'
+    );
+  };
+
+  const handlePasswordUpdate = () => {
+    if (!pwdForm.oldPassword || !pwdForm.newPassword || !pwdForm.confirmPassword) {
+      onNotify(null, 'Validation Error', 'All password fields are required.', 'error');
+      return;
+    }
+    if (pwdForm.newPassword !== pwdForm.confirmPassword) {
+      onNotify(null, 'Validation Error', 'New passwords do not match.', 'error');
+      return;
+    }
+    
+    // Reset modal state and alert the notification network
+    setShowPwdModal(false);
+    setPwdForm({ oldPassword: '', newPassword: '', confirmPassword: '' });
+    onNotify(null, 'Password Changed', 'Your account password has been updated successfully.', 'success');
+  };
+
+  const handleSave = () => {
+    // Validate inputs step-by-step
+    if (formData.firstName && !regexName.test(formData.firstName)) {
+      onNotify(null, 'Validation Error', 'First Name contains invalid characters.', 'error');
+      return;
+    }
+    if (formData.lastName && !regexName.test(formData.lastName)) {
+      onNotify(null, 'Validation Error', 'Last Name contains invalid characters.', 'error');
+      return;
+    }
+    if (formData.dept && !regexDept.test(formData.dept)) {
+      onNotify(null, 'Validation Error', 'Department contains invalid characters.', 'error');
+      return;
+    }
+    if (formData.email && !regexEmail.test(formData.email)) {
+      onNotify(null, 'Validation Error', 'Invalid E-Mail Address format.', 'error');
+      return;
+    }
+    if (formData.tel && !regexTel.test(formData.tel)) {
+      onNotify(null, 'Validation Error', 'Telephone must match +886-3-5636688 or 03-5636688.', 'error');
+      return;
+    }
+    if (formData.ext && !regexExt.test(formData.ext)) {
+      onNotify(null, 'Validation Error', 'Extension must be a 7-digit number (e.g., 7123456).', 'error');
+      return;
+    }
+    if (formData.mobile && !regexMobile.test(formData.mobile)) {
+      onNotify(null, 'Validation Error', 'Mobile Phone must match 0912-345-678.', 'error');
+      return;
+    }
+
+    onUpdateUser({
+      name: currentFullName || ui.placeholder_user,
+      role: displayRole
+    });
+    
+    onNotify(null, 'Profile Synchronized', 'User settings successfully pushed to global layout.', 'success');
+    setShowSuccess(true);
+  };
+
   // Privileges Mapping logic from Prototype RBAC
   const getPrivileges = (role: string) => {
     const map: Record<string, string[]> = {
@@ -98,14 +185,6 @@ export const MyProfileView: React.FC<MyProfileViewProps> = ({
       'ROLE_PUBLIC': [ui.priv_view]
     };
     return map[role] || map['ROLE_PUBLIC'];
-  };
-
-  const handleSave = () => {
-    onUpdateUser({
-      name: currentFullName || ui.placeholder_user,
-      role: displayRole // Role remains fixed as per production requirement
-    });
-    setShowSuccess(true);
   };
 
   return (
@@ -198,7 +277,9 @@ export const MyProfileView: React.FC<MyProfileViewProps> = ({
                     onChange={(e) => setFormData({...formData, title: e.target.value})}
                     className="w-full rounded-lg border-slate-200 bg-white py-2.5 px-4 text-sm focus:ring-corporate-blue focus:border-corporate-blue cursor-pointer"
                   >
-                    <option value="Mr.">Mr.</option><option value="Ms.">Ms.</option><option value="Dr.">Dr.</option>
+                    <option value="Mr.">{ui.title_mr}</option>
+                    <option value="Ms.">{ui.title_ms}</option>
+                    <option value="Dr.">{ui.title_dr}</option>
                   </select>
                 </div>
                 <div className="space-y-1.5">
@@ -231,34 +312,38 @@ export const MyProfileView: React.FC<MyProfileViewProps> = ({
                   <label className="text-xs font-semibold text-slate-500">{ui.lbl_email}</label>
                   <input 
                     type="email" value={formData.email}
+                    placeholder="example@tsmc.com"
                     onChange={(e) => setFormData({...formData, email: e.target.value})}
                     className="w-full rounded-lg border-slate-200 bg-white py-2.5 px-4 text-sm focus:ring-corporate-blue"
                   />
                 </div>
 
-                {/* Row 3: Tel, Ext, Mobile */}
+                {/* Row 3: Tel, Ext, Mobile (Optimized with precise HTML Input Types) */}
                 <div className="space-y-1.5">
                   <label className="text-xs font-semibold text-slate-500">{ui.lbl_tel}</label>
                   <input 
-                    type="text" value={formData.tel}
+                    type="tel" value={formData.tel}
+                    placeholder="+886-3-5636688"
                     onChange={(e) => setFormData({...formData, tel: e.target.value})}
-                    className="w-full rounded-lg border-slate-200 bg-white py-2.5 px-4 text-sm focus:ring-corporate-blue"
+                    className="w-full rounded-lg border-slate-200 bg-white py-2.5 px-4 text-sm focus:ring-corporate-blue focus:border-corporate-blue"
                   />
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-xs font-semibold text-slate-500">{ui.lbl_ext}</label>
                   <input 
-                    type="text" value={formData.ext}
+                    type="text" inputMode="numeric" pattern="[0-9]*" value={formData.ext}
+                    placeholder="7123456"
                     onChange={(e) => setFormData({...formData, ext: e.target.value})}
-                    className="w-full rounded-lg border-slate-200 bg-white py-2.5 px-4 text-sm focus:ring-corporate-blue"
+                    className="w-full rounded-lg border-slate-200 bg-white py-2.5 px-4 text-sm focus:ring-corporate-blue focus:border-corporate-blue"
                   />
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-xs font-semibold text-slate-500">{ui.lbl_mobile}</label>
                   <input 
-                    type="text" value={formData.mobile}
+                    type="tel" value={formData.mobile}
+                    placeholder="0912-345-678"
                     onChange={(e) => setFormData({...formData, mobile: e.target.value})}
-                    className="w-full rounded-lg border-slate-200 bg-white py-2.5 px-4 text-sm focus:ring-corporate-blue"
+                    className="w-full rounded-lg border-slate-200 bg-white py-2.5 px-4 text-sm focus:ring-corporate-blue focus:border-corporate-blue"
                   />
                 </div>
               </div>
@@ -296,7 +381,10 @@ export const MyProfileView: React.FC<MyProfileViewProps> = ({
                   <h4 className="font-bold text-sm text-slate-900">{ui.acc_pwd}</h4>
                   <p className="text-xs text-slate-500">{ui.pwd_desc}</p>
                 </div>
-                <button className="px-4 py-2 bg-slate-100 text-slate-600 text-xs font-bold rounded-lg hover:bg-slate-200 cursor-pointer">
+                <button 
+                  onClick={() => setShowPwdModal(true)}
+                  className="px-4 py-2 bg-slate-100 text-slate-600 text-xs font-bold rounded-lg hover:bg-slate-200 cursor-pointer"
+                >
                   {ui.btn_chg_pwd}
                 </button>
               </div>
@@ -317,7 +405,7 @@ export const MyProfileView: React.FC<MyProfileViewProps> = ({
                   </div>
                 </div>
                 <button 
-                  onClick={() => setFormData({...formData, is2FA: !formData.is2FA})}
+                  onClick={handleToggle2FA}
                   className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ${formData.is2FA ? 'bg-emerald-500' : 'bg-slate-200'}`}
                 >
                   <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ${formData.is2FA ? 'translate-x-5' : 'translate-x-0'}`} />
@@ -325,6 +413,57 @@ export const MyProfileView: React.FC<MyProfileViewProps> = ({
               </div>
             </div>
           </section>
+            {/* Change Password Modal (Prototype aligned) */}
+            {showPwdModal && (
+              <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-[fadeIn_0.2s_ease-out]">
+                <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden animate-[zoomIn_0.2s_ease-out]">
+                  <div className="border-b border-slate-50 bg-slate-50/50 px-8 py-4">
+                    <h3 className="font-bold text-slate-800">{ui.modal_pwd_title}</h3>
+                  </div>
+                  <div className="p-8 space-y-4">
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-semibold text-slate-500">{ui.modal_old_pwd}</label>
+                      <input 
+                        type="password" value={pwdForm.oldPassword}
+                        onChange={(e) => setPwdForm({ ...pwdForm, oldPassword: e.target.value })}
+                        className="w-full rounded-lg border-slate-200 bg-white py-2.5 px-4 text-sm focus:ring-corporate-blue"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-semibold text-slate-500">{ui.modal_new_pwd}</label>
+                      <input 
+                        type="password" value={pwdForm.newPassword}
+                        onChange={(e) => setPwdForm({ ...pwdForm, newPassword: e.target.value })}
+                        className="w-full rounded-lg border-slate-200 bg-white py-2.5 px-4 text-sm focus:ring-corporate-blue"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-semibold text-slate-500">{ui.modal_confirm_pwd}</label>
+                      <input 
+                        type="password" value={pwdForm.confirmPassword}
+                        onChange={(e) => setPwdForm({ ...pwdForm, confirmPassword: e.target.value })}
+                        className="w-full rounded-lg border-slate-200 bg-white py-2.5 px-4 text-sm focus:ring-corporate-blue"
+                      />
+                    </div>
+                    <div className="flex justify-end gap-3 pt-4 border-t border-slate-50 mt-6">
+                      <button 
+                        onClick={() => { setShowPwdModal(false); setPwdForm({ oldPassword: '', newPassword: '', confirmPassword: '' }); }}
+                        className="px-4 py-2 bg-slate-100 text-slate-600 text-xs font-bold rounded-lg hover:bg-slate-200 cursor-pointer"
+                      >
+                        {ui.btn_cancel}
+                      </button>
+                      <button 
+                        onClick={handlePasswordUpdate}
+                        className="px-4 py-2 bg-corporate-blue text-white text-xs font-bold rounded-lg hover:bg-blue-700 shadow-md cursor-pointer"
+                      >
+                        {ui.btn_confirm}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Success Modal */}
             {showSuccess && (
                 <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-[fadeIn_0.2s_ease-out]">
