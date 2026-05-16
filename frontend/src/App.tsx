@@ -5,7 +5,7 @@ import { Sidebar } from './components/layout/Sidebar';
 import { FabRequestView } from './views/FabRequestView';
 import { LabOperationsView } from './views/LabOperationsView';
 import { ManagerDashboardView } from './views/ManagerDashboardView';
-// import { CapacityAnalyticsView } from './views/CapacityAnalyticsView';
+import { CapacityAnalyticsView } from './views/CapacityAnalyticsView';
 import { MyProfileView } from './views/MyProfileView';
 
 const App: React.FC = () => {
@@ -68,12 +68,13 @@ const App: React.FC = () => {
         return <LabOperationsView language={language} onNotify={addNotification} />;
       case 'view-manager-dashboard':
         return <ManagerDashboardView language={language} onNotify={addNotification} />;
-      // case 'view-capacity-analytics':
-      //   return <CapacityAnalyticsView language={language} machines={machines} />;
+      case 'view-capacity-analytics':
+        return <CapacityAnalyticsView language={language} />;
       case 'view-my-profile':
         return <MyProfileView 
           language={language} 
           user={user} 
+          onNotify={addNotification}
           onUpdateUser={setUser} 
           onLogout={handleLogout} 
         />;
