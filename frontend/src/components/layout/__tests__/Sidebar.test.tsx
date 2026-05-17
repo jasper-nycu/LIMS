@@ -3,7 +3,7 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 import { Sidebar } from '../Sidebar';
 
-describe('Sidebar Component', () => {
+describe('Sidebar - Enterprise Layout Router Testing Suite', () => {
   const defaultProps = {
     isOpen: true,
     onToggle: vi.fn(),

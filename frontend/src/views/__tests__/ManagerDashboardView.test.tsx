@@ -3,7 +3,7 @@ import { render, screen, fireEvent, act, cleanup } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { ManagerDashboardView, type ManagerRequest } from '../ManagerDashboardView';
 
-describe('ManagerDashboardView - Stateless & Dynamic Data Validation', () => {
+describe('ManagerDashboardView - Enterprise Supervisor Approval Testing Suite', () => {
   const mockOnNotify = vi.fn();
 
   // Helper: Dynamically generate unique requests [Requirement: Stateless]
