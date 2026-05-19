@@ -30,4 +30,4 @@ jobs:
           cache: maven
 
       - name: Execute Backend Tests
-        run: ./mvnw test
+        run: bash ./mvnw test
