@@ -15,3 +15,4 @@
 - [ ] All automated unit tests passed successfully (`npm run test:ci`).
 - [ ] No default test credentials or sensitive database secrets are hardcoded.
 - [ ] Code changes align perfectly with the `index.html` prototype specifications.
+- [ ] Code structure strictly adheres to the 'com.tsmc.lims.[feature].[layer]' package naming convention.
