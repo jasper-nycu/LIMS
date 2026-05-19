@@ -31,7 +31,7 @@ vi.mock('chart.js', () => {
   };
 });
 
-describe('CapacityAnalyticsView Component', () => {
+describe('CapacityAnalyticsView - Enterprise Telemetry Testing Suite', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });

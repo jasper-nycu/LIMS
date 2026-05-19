@@ -3,7 +3,7 @@ import { render, screen, fireEvent, within } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { FabRequestView } from '../FabRequestView';
 
-describe('FabRequestView Component', () => {
+describe('FabRequestView - Enterprise Order Provisioning Testing Suite', () => {
   const mockOnNotify = vi.fn();
   const defaultProps = {
     language: 'en' as const,

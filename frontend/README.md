@@ -5,31 +5,30 @@
 ## 專案架構 (Project Structure)
 
 ```text
-frontend/src/
-├── assets/              # 靜態資源
-├── components/          # 重複使用的組件
-│   └── layout/          # 全域佈局的組件
-│       ├── __tests__/   # 佈局組件的單元測試
-│       │
-│       ├── Header.tsx   # 頂部導覽列 (語系切換、通知、使用者資訊)
-│       └── Sidebar.tsx  # 側邊導覽選單 (負責視圖導覽與 RWD 縮放)
-│
-├── views/                        # 頁面視圖
-│   ├── __tests__/                # 頁面邏輯單元測試
-│   │
-│   ├── AuthView.tsx              # 登入與註冊頁面
-│   ├── FabRequestView.tsx        # 廠區建立委託單
-│   ├── LabOperationsView.tsx     # 實驗室人員操作
-│   ├── ManagerDashboardView.tsx  # 實驗室主管簽核
-│   ├── CapacityAnalyticsView.tsx # 機台分析圖表
-│   └── MyProfileView.tsx         # 個人帳號設定
-│
-├── test/                # 測試環境配置
-│   └── setup.ts         # Vitest 環境設定 (引入 jest-dom 擴充)
-│
-├── App.tsx              # 應用程式根組件 (負責全域狀態管理與視圖跳轉邏輯)
-├── main.tsx             # 程式進入點 (負責將 React 掛載至 HTML DOM)
-└── index.css            # 全域樣式設定與 Tailwind CSS v4 主題定義
+frontend/
+├── index.html                    # 網頁的 Metadata 以及 React 的掛載點
+└── src/
+    ├── assets/                   # 靜態資源
+    ├── components/layout/        # 全域佈局重複使用組件
+    │   ├── __tests__/            # 佈局組件的單元測試 (Header, Sidebar 測試)
+    │   ├── Header.tsx            # 頂部導覽列 (語系切換、通知、使用者資訊)
+    │   └── Sidebar.tsx           # 側邊導覽選單 (負責視圖導覽與 RWD 縮放)
+    │
+    ├── views/                        # 頁面視圖
+    │   ├── __tests__/                # 頁面邏輯單元測試 (Auth, FabRequest, LabOps 等測試)
+    │   ├── AuthView.tsx              # 登入與註冊頁面
+    │   ├── FabRequestView.tsx        # 廠區建立委託單
+    │   ├── LabOperationsView.tsx     # 實驗室人員操作
+    │   ├── ManagerDashboardView.tsx  # 實驗室主管簽核
+    │   ├── CapacityAnalyticsView.tsx # 機台分析圖表
+    │   └── MyProfileView.tsx         # 個人帳號設定
+    │
+    ├── test/                     # 測試環境配置
+    │   └── setup.ts              # Vitest 環境設定 (引入 jest-dom 擴充)
+    │
+    ├── App.tsx                   # 應用程式根組件 (負責全域狀態管理與視圖跳轉邏輯)
+    ├── main.tsx                  # 程式進入點 (負責將 React 掛載至 HTML DOM)
+    └── index.css                 # 全域樣式設定與 Tailwind CSS v4 主題定義
 ```
 
 ### 核心設計重點

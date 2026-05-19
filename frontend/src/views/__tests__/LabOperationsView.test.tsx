@@ -3,7 +3,7 @@ import { render, screen, fireEvent, within, cleanup } from '@testing-library/rea
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { LabOperationsView, type WipWafer } from '../LabOperationsView';
 
-describe('LabOperationsView Component - Perfectly Safe FSM Validation', () => {
+describe('LabOperationsView - Enterprise Finite State Machine Testing Suite', () => {
   const mockOnNotify = vi.fn();
 
   // Helper: Dynamically generate compliant IDs (W-XXXX) for isolation [Requirement 3]

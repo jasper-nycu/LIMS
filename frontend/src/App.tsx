@@ -7,6 +7,7 @@ import { LabOperationsView } from './views/LabOperationsView';
 import { ManagerDashboardView } from './views/ManagerDashboardView';
 import { CapacityAnalyticsView } from './views/CapacityAnalyticsView';
 import { MyProfileView } from './views/MyProfileView';
+import { AuthView } from './views/AuthView';
 
 const App: React.FC = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(true);
@@ -95,9 +96,21 @@ const App: React.FC = () => {
     }
   };
 
+  // Public Access Control Routing Layer
+  if (!user) {
+    return (
+      <AuthView 
+        language={language}
+        onLanguageChange={setLanguage}
+        onLoginSuccess={setUser}
+        onNotify={addNotification}
+      />
+    );
+  }
+
   return (
     <div className="flex flex-col h-screen w-full overflow-hidden">
-      <Header 
+      <Header
         onToggleMenu={toggleSidebar} 
         language={language}
         onLanguageChange={setLanguage}

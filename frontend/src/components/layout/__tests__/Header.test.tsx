@@ -3,7 +3,7 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 import { Header } from '../Header';
 
-describe('Header Component', () => {
+describe('Header - Enterprise Global Navigation Testing Suite', () => {
   const defaultProps = {
     onToggleMenu: vi.fn(),
     language: 'en' as const,
