@@ -121,14 +121,18 @@ export const AuthView: React.FC<AuthViewProps> = ({
   const handleLoginSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     // Simulate structural user profile initialization mapping back to App layout
-    const fallbackName = loginForm.empId === 'TS-0001' ? 'Jasper Li' : 'Standard Operator';
-    const inferredRole = loginForm.empId === 'TS-0001' ? 'ROLE_SYSADMIN' : 'ROLE_LAB_OPERATOR';
+    const userDirectory: Record<string, UserProfile> = {
+      'TS-0001': { name: 'Jasper Li', role: 'ROLE_SYSADMIN' },
+      'TS-1001': { name: 'Fab User', role: 'ROLE_FAB_USER' },
+      'TS-9001': { name: 'Lab Manager', role: 'ROLE_LAB_MANAGER' },
+    };
+    const signedInUser = userDirectory[loginForm.empId] ?? {
+      name: 'Standard Operator',
+      role: 'ROLE_LAB_OPERATOR',
+    };
 
     onNotify(null, 'Auth Success', ui.notif_welcome, 'success');
-    onLoginSuccess({
-      name: fallbackName,
-      role: inferredRole
-    });
+    onLoginSuccess(signedInUser);
   };
 
   const handleRegisterClick = (e: React.FormEvent) => {

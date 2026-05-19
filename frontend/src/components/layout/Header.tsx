@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 
 export interface UserProfile {
+  employeeId?: string;
   name: string;
   role: string;
 }
@@ -11,6 +12,7 @@ export interface NotificationData {
   title: string;
   desc: string;
   type: 'info' | 'success' | 'error' | 'warning';
+  read?: boolean;
 }
 
 interface HeaderProps {

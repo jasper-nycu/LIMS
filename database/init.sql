@@ -85,6 +85,12 @@ CREATE TABLE IF NOT EXISTS wafers (
     UNIQUE(request_id, wafer_code)
 );
 
+CREATE TABLE IF NOT EXISTS request_experiments (
+    request_id VARCHAR(20) REFERENCES requests(request_id) ON DELETE CASCADE,
+    exp_key VARCHAR(50) REFERENCES experiments(exp_key),
+    PRIMARY KEY (request_id, exp_key)
+);
+
 CREATE TABLE IF NOT EXISTS wip_tasks (
     task_id SERIAL PRIMARY KEY,
     request_id VARCHAR(20) REFERENCES requests(request_id),
@@ -93,6 +99,16 @@ CREATE TABLE IF NOT EXISTS wip_tasks (
     machine_id VARCHAR(50) REFERENCES machines(machine_id),
     status VARCHAR(20) DEFAULT 'QUEUE',
     dispatched_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS notifications (
+    notif_id SERIAL PRIMARY KEY,
+    user_id VARCHAR(20) REFERENCES users(employee_id),
+    title VARCHAR(120) NOT NULL,
+    message TEXT,
+    type VARCHAR(20) DEFAULT 'info',
+    is_read BOOLEAN DEFAULT false,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- 2. Data Insertion (DML)
@@ -107,6 +123,19 @@ INSERT INTO roles (role_enum, role_name, permissions) VALUES
     ('ROLE_FAB_USER', 'Fab User', '["CREATE_REQ", "TRACK_REQ"]'),
     ('ROLE_PUBLIC', 'Public', '["VIEW_PROFILE"]')
 ON CONFLICT (role_enum) DO NOTHING;
+
+-- Insert baseline users for local development and Fab/Manager workflows
+INSERT INTO users (
+    employee_id, role_enum, is_active, title, first_name, last_name, department, email,
+    telephone, extension, mobile_phone, password_hash, password_salt, public_key
+) VALUES
+    ('TS-0001', 'ROLE_SYSADMIN', true, 'Ms.', 'System', 'Admin', 'IT Operations', 'sysadmin@lims.local',
+     '03-5712121', '0001', '0912000000', 'dev-password-hash', 'dev-salt', 'dev-public-key'),
+    ('TS-1001', 'ROLE_FAB_USER', true, 'Ms.', 'Fab', 'User', 'Factory Integration', 'fab.user@lims.local',
+     '03-5712121', '1001', '0912000001', 'dev-password-hash', 'dev-salt', 'dev-public-key'),
+    ('TS-9001', 'ROLE_LAB_MANAGER', true, 'Dr.', 'Lab', 'Manager', 'Laboratory Operations', 'lab.manager@lims.local',
+     '03-5712121', '9001', '0912900001', 'dev-password-hash', 'dev-salt', 'dev-public-key')
+ON CONFLICT (employee_id) DO NOTHING;
 
 -- Insert Laboratories
 INSERT INTO laboratories (lab_id, lab_name) VALUES

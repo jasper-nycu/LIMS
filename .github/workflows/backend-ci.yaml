@@ -1,0 +1,33 @@
+name: LIMS Backend Continuous Integration
+
+on:
+  push:
+    branches:
+      - main
+      - feature/fab-manager
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  backend-build-and-test:
+    name: Spring Boot Backend Tests
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: ./backend
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Initialize Java Runtime
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: maven
+
+      - name: Execute Backend Tests
+        run: ./mvnw test

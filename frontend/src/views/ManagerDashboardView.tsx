@@ -1,5 +1,7 @@
 // src/views/ManagerDashboardView.tsx
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { apiGet, apiPost } from '../api';
+import { type UserProfile } from '../components/layout/Header';
 
 // --- Interfaces ---
 export interface ManagerRequest {
@@ -17,9 +19,11 @@ interface ManagerDashboardProps {
   language: 'en' | 'tw';
   onNotify: (titleKey: string | null, fallbackTitle: string, desc: string, type: 'info' | 'success' | 'error' | 'warning') => void;
   initialRequests?: ManagerRequest[]; // Support dynamic data injection
+  user?: UserProfile | null;
+  onRefreshNotifications?: () => void;
 }
 
-export const ManagerDashboardView: React.FC<ManagerDashboardProps> = ({ language, onNotify, initialRequests = [] }) => {
+export const ManagerDashboardView: React.FC<ManagerDashboardProps> = ({ language, onNotify, initialRequests = [], user, onRefreshNotifications }) => {
   const i18n = {
     en: {
       title: 'Approval Queue',
@@ -78,14 +82,37 @@ export const ManagerDashboardView: React.FC<ManagerDashboardProps> = ({ language
   const [rejectReason, setRejReason] = useState('');
   const [removingId, setRemovingId] = useState<string | null>(null);
 
+  useEffect(() => {
+    if (!user?.employeeId && initialRequests.length === 0) return;
+    if (initialRequests.length > 0) return;
+    apiGet<ManagerRequest[]>('/api/manager/requests/pending')
+      .then(setRequests)
+      .catch(() => undefined);
+  }, [user?.employeeId, initialRequests.length]);
+
   // --- Handlers ---
   const handleApprove = (id: string) => {
     setRemovingId(id);
     // wait for 400ms to allow the fade-out animation before removing from state
     setTimeout(() => {
-      setRequests(prev => prev.filter(r => r.id !== id));
-      setRemovingId(null);
-      onNotify(null, ui.notifApprove, `${id} has been moved to Lab WIP queue.`, 'success');
+      const finish = () => {
+        setRequests(prev => prev.filter(r => r.id !== id));
+        setRemovingId(null);
+        onNotify(null, ui.notifApprove, `${id} has been moved to Lab WIP queue.`, 'success');
+        onRefreshNotifications?.();
+      };
+
+      if (!user?.employeeId) {
+        finish();
+        return;
+      }
+
+      apiPost(`/api/manager/requests/${id}/approve`, { approverId: user.employeeId })
+        .then(finish)
+        .catch(() => {
+          setRemovingId(null);
+          onNotify(null, 'Approval Failed', `${id} could not be approved.`, 'error');
+        });
     }, 400);
   };
 
@@ -96,10 +123,25 @@ export const ManagerDashboardView: React.FC<ManagerDashboardProps> = ({ language
     setRejModal({ isOpen: false, targetId: null });
 
     setTimeout(() => {
-      setRequests(prev => prev.filter(r => r.id !== targetId));
-      setRemovingId(null);
-      onNotify(null, ui.notifReject, `${targetId} rejected: ${rejectReason}`, 'error');
-      setRejReason('');
+      const finish = () => {
+        setRequests(prev => prev.filter(r => r.id !== targetId));
+        setRemovingId(null);
+        onNotify(null, ui.notifReject, `${targetId} rejected: ${rejectReason}`, 'error');
+        setRejReason('');
+        onRefreshNotifications?.();
+      };
+
+      if (!user?.employeeId) {
+        finish();
+        return;
+      }
+
+      apiPost(`/api/manager/requests/${targetId}/reject`, { approverId: user.employeeId, rejectReason })
+        .then(finish)
+        .catch(() => {
+          setRemovingId(null);
+          onNotify(null, 'Rejection Failed', `${targetId} could not be rejected.`, 'error');
+        });
     }, 400);
   };
 

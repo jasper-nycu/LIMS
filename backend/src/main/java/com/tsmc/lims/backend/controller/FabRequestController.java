@@ -1,0 +1,42 @@
+package com.tsmc.lims.backend.controller;
+
+import com.tsmc.lims.backend.dto.CreateFabRequest;
+import com.tsmc.lims.backend.dto.FabRequestSummary;
+import com.tsmc.lims.backend.dto.LaboratoryOption;
+import com.tsmc.lims.backend.service.FabManagerService;
+import java.util.List;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseStatus;
+import org.springframework.web.bind.annotation.RestController;
+
+@RestController
+@RequestMapping("/api/fab")
+public class FabRequestController {
+
+    private final FabManagerService service;
+
+    public FabRequestController(FabManagerService service) {
+        this.service = service;
+    }
+
+    @GetMapping("/labs")
+    public List<LaboratoryOption> listLabs() {
+        return service.listLaboratories();
+    }
+
+    @PostMapping("/requests")
+    @ResponseStatus(HttpStatus.CREATED)
+    public FabRequestSummary createRequest(@RequestBody CreateFabRequest request) {
+        return service.createRequest(request);
+    }
+
+    @GetMapping("/requests")
+    public List<FabRequestSummary> listRequests(@RequestParam String requesterId) {
+        return service.listRequesterRequests(requesterId);
+    }
+}

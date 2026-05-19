@@ -1,5 +1,6 @@
 // src/views/LabOperationsView.tsx
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { apiGet } from '../api';
 
 // --- Interfaces ---
 interface MachineState {
@@ -111,6 +112,13 @@ export const LabOperationsView: React.FC<LabOperationsViewProps> = ({ language, 
   });
 
   const [targetMachId, setTargetMachId] = useState('BAKE-OVEN-01');
+
+  useEffect(() => {
+    if (initialWips.length > 0) return;
+    apiGet<WipWafer[]>('/api/lab/wips')
+      .then(setWips)
+      .catch(() => undefined);
+  }, [initialWips.length]);
 
   // --- Handlers ---
   const handleDispatch = () => {

@@ -1,5 +1,5 @@
 // src/App.tsx
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Header, type UserProfile, type NotificationData } from './components/layout/Header';
 import { Sidebar } from './components/layout/Sidebar';
 import { FabRequestView } from './views/FabRequestView';
@@ -8,6 +8,16 @@ import { ManagerDashboardView } from './views/ManagerDashboardView';
 import { CapacityAnalyticsView } from './views/CapacityAnalyticsView';
 import { MyProfileView } from './views/MyProfileView';
 import { AuthView } from './views/AuthView';
+import { apiDelete, apiGet, apiPostVoid } from './api';
+
+const resolveEmployeeId = (user: UserProfile | null): string | undefined => {
+  if (!user) return undefined;
+  if (user.employeeId) return user.employeeId;
+  if (user.role === 'ROLE_SYSADMIN') return 'TS-0001';
+  if (user.role === 'ROLE_FAB_USER') return 'TS-1001';
+  if (user.role === 'ROLE_LAB_MANAGER') return 'TS-9001';
+  return undefined;
+};
 
 const App: React.FC = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(true);
@@ -16,12 +26,32 @@ const App: React.FC = () => {
   
   // 1. Set notifications to an empty array for Stateless requirement
   const [notifications, setNotifications] = useState<NotificationData[]>([]);
+  const deletedNotificationIds = useRef<Set<string>>(new Set());
   
   // 2. Set initial notification badge to false
   const [hasNew, setHasNew] = useState<boolean>(false); 
 
   // User set to null (Public/Stateless mode)
   const [user, setUser] = useState<UserProfile | null>(null);
+
+  const refreshNotifications = async () => {
+    const employeeId = resolveEmployeeId(user);
+    if (!employeeId) return;
+    try {
+      const serverNotifications = await apiGet<NotificationData[]>(`/api/notifications?employeeId=${encodeURIComponent(employeeId)}`);
+      const visibleNotifications = serverNotifications.filter(notif => !deletedNotificationIds.current.has(notif.id));
+      setNotifications(visibleNotifications);
+      setHasNew(visibleNotifications.some(notif => !notif.read));
+    } catch {
+      // Keep the existing in-session notifications when the backend is not running.
+    }
+  };
+
+  useEffect(() => {
+    refreshNotifications();
+  }, [user?.role, user?.employeeId]);
+
+  const apiUser = user ? { ...user, employeeId: resolveEmployeeId(user) } : null;
 
   const handleLogout = () => {
     setUser(null);
@@ -46,17 +76,33 @@ const App: React.FC = () => {
   const handleMarkAsRead = () => {
     if (notifications.length > 0) {
       setHasNew(false);
+      setNotifications(prev => prev.map(notif => ({ ...notif, read: true })));
+    }
+    const employeeId = resolveEmployeeId(user);
+    if (employeeId) {
+      apiPostVoid(`/api/notifications/read?employeeId=${encodeURIComponent(employeeId)}`).catch(() => undefined);
     }
   };
 
   const handleDeleteNotif = (id: string) => {
+    deletedNotificationIds.current.add(id);
     const updated = notifications.filter(n => n.id !== id);
     setNotifications(updated);
     if (updated.length === 0) setHasNew(false);
+    const employeeId = resolveEmployeeId(user);
+    if (employeeId) {
+      apiDelete(`/api/notifications/${encodeURIComponent(id)}?employeeId=${encodeURIComponent(employeeId)}`).catch(() => undefined);
+    }
   };
 
   const handleClearAllNotifs = () => {
+    notifications.forEach(notif => deletedNotificationIds.current.add(notif.id));
     setNotifications([]);
+    setHasNew(false);
+    const employeeId = resolveEmployeeId(user);
+    if (employeeId) {
+      apiDelete(`/api/notifications?employeeId=${encodeURIComponent(employeeId)}`).catch(() => undefined);
+    }
   };
 
   const renderContent = () => {
@@ -64,11 +110,11 @@ const App: React.FC = () => {
     switch (activeView) {
       case 'view-factory-request':
         // Mapping simple notify to the standardized 4-param notify
-        return <FabRequestView language={language} onNotify={(t, d, tp) => addNotification(null, t, d, tp)} />;
+        return <FabRequestView language={language} user={apiUser} onNotify={(t, d, tp) => addNotification(null, t, d, tp)} onRefreshNotifications={refreshNotifications} />;
       case 'view-lab-operations':
         return <LabOperationsView language={language} onNotify={addNotification} />;
       case 'view-manager-dashboard':
-        return <ManagerDashboardView language={language} onNotify={addNotification} />;
+        return <ManagerDashboardView language={language} user={apiUser} onNotify={addNotification} onRefreshNotifications={refreshNotifications} />;
       case 'view-capacity-analytics':
         return <CapacityAnalyticsView language={language} />;
       case 'view-my-profile':
