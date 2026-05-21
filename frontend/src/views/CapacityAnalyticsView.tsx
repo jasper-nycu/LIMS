@@ -10,23 +10,30 @@ interface Owner {
   color: string;
 }
 
+interface MachineHistoryPoint {
+  timestamp: number;
+  util: number;
+}
+
 interface MachineState {
   id: string;
   state: 'PROCESSING' | 'IDLE' | 'ALARM' | 'MAINTENANCE';
-  loaded: string[];
+  loadedCount?: number;
   cap: number;
   expKey: string;
   name: string;
   error: string | null;
   currentUtil: number;
   owners: Owner[];
+  utilHistory?: MachineHistoryPoint[];
 }
 
 interface CapacityAnalyticsViewProps {
   language: 'en' | 'tw';
+  machines?: Record<string, MachineState>;
 }
 
-export const CapacityAnalyticsView: React.FC<CapacityAnalyticsViewProps> = ({ language }) => {
+export const CapacityAnalyticsView: React.FC<CapacityAnalyticsViewProps> = ({ language, machines = {} }) => {
   // i18n Translation Dictionary matching index.html structural targets
   const i18n = {
     en: {
@@ -75,20 +82,6 @@ export const CapacityAnalyticsView: React.FC<CapacityAnalyticsViewProps> = ({ la
   const instanceRef1 = useRef<Chart | null>(null);
   const instanceRef2 = useRef<Chart | null>(null);
 
-  // =========================================================================
-  // NOTE FOR FUTURE BACKEND DEVELOPMENT:
-  // This initial state dictionary will be populated from the database via API endpoints.
-  // Connect this hook to your generic Axios/Fetch polling pipeline during synchronization.
-  // =========================================================================
-  const [machines] = useState<Record<string, MachineState>>({
-    'SEM-01': { id: 'SEM-01', state: 'PROCESSING', loaded: Array.from({length: 18}, (_, i) => `W-10${(i+1).toString().padStart(2, '0')}`), cap: 25, expKey: 'exp_sem', name: 'Surface Scan (SEM)', error: null, currentUtil: 72, owners: [{ initials: 'MW', color: 'bg-slate-600' }, { initials: 'JS', color: 'bg-blue-400' }] },
-    'BAKE-OVEN-01': { id: 'BAKE-OVEN-01', state: 'IDLE', loaded: [], cap: 50, expKey: 'exp_bake', name: 'High-Temp Bake', error: null, currentUtil: 0, owners: [{ initials: 'SC', color: 'bg-accent-sky' }] },
-    'TEM-01': { id: 'TEM-01', state: 'IDLE', loaded: [], cap: 10, expKey: 'exp_deep', name: 'Deep Analysis', error: null, currentUtil: 0, owners: [{ initials: 'RK', color: 'bg-red-500' }] },
-    'FIB-01': { id: 'FIB-01', state: 'IDLE', loaded: [], cap: 1, expKey: 'exp_fib', name: 'Focused Ion Beam', error: null, currentUtil: 0, owners: [{ initials: 'CH', color: 'bg-indigo-500' }] },
-    'E-TEST-02': { id: 'E-TEST-02', state: 'PROCESSING', loaded: Array.from({length: 42}, (_, i) => `W-20${(i+1).toString().padStart(2, '0')}`), cap: 50, expKey: 'exp_etest', name: 'Electrical Test', error: null, currentUtil: 84, owners: [{ initials: 'AS', color: 'bg-emerald-600' }] },
-    'XRD-01': { id: 'XRD-01', state: 'IDLE', loaded: [], cap: 25, expKey: 'exp_xrd', name: 'X-Ray Diffraction', error: null, currentUtil: 0, owners: [{ initials: 'TH', color: 'bg-amber-500' }] },
-  });
-
   // Helper date parsing mirroring standard index.html telemetry functions
   const formatTime = (d: Date) => `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
   const formatDate = (d: Date) => `${(d.getMonth() + 1).toString().padStart(2, '0')}/${d.getDate().toString().padStart(2, '0')}`;
@@ -99,18 +92,7 @@ export const CapacityAnalyticsView: React.FC<CapacityAnalyticsViewProps> = ({ la
     const now = new Date();
     const labels: string[] = [];
     const points = 7;
-
-    // Line data buffers corresponding to individual machines
-    const dataLineSEM: number[] = [];
-    const dataLineTEM: number[] = [];
-    const dataLineFIB: number[] = [];
-    const dataLineBAKE: number[] = [];
-    const dataLineETEST: number[] = [];
-    const dataLineXRD: number[] = [];
-
-    let avgUtilSum = 0;
-
-    // Time-Series generation math mirrored from prototype engine
+    // Build labels (oldest -> now)
     for (let i = points - 1; i >= 0; i--) {
       const t = new Date(now.getTime());
       if (timeRange === '5m') t.setMinutes(t.getMinutes() - i);
@@ -121,38 +103,70 @@ export const CapacityAnalyticsView: React.FC<CapacityAnalyticsViewProps> = ({ la
       else if (timeRange === '3d') t.setHours(t.getHours() - i * 12);
       else if (timeRange === '1w') t.setDate(t.getDate() - i);
 
-      if (i === 0) {
-        labels.push(ui.nowLabel);
-      } else {
-        labels.push(timeRange === '3d' || timeRange === '1w' ? `${formatDate(t)} ${formatTime(t)}` : formatTime(t));
-      }
-
-      // Simulation evaluation logic for active vs historical telemetry blocks
-      const getVal = (machId: string) => {
-        const m = machines[machId];
-        if (i === 0) {
-          if (m.state === 'ALARM' || m.state === 'MAINTENANCE') return 0;
-          return m.loaded.length > 0 ? Math.round((m.loaded.length / m.cap) * 100) : 0;
-        }
-        // Simulated structural noise between 60% and 95% for past telemetry points
-        return Math.floor(Math.random() * 35) + 60;
-      };
-
-      const semV = getVal('SEM-01'); dataLineSEM.push(semV);
-      const temV = getVal('TEM-01'); dataLineTEM.push(temV);
-      const fibV = getVal('FIB-01'); dataLineFIB.push(fibV);
-      const bakeV = getVal('BAKE-OVEN-01'); dataLineBAKE.push(bakeV);
-      const etestV = getVal('E-TEST-02'); dataLineETEST.push(etestV);
-      const xrdV = getVal('XRD-01'); dataLineXRD.push(xrdV);
-
-      avgUtilSum += (semV + temV + fibV + bakeV + etestV + xrdV) / 6;
+      if (i === 0) labels.push(ui.nowLabel);
+      else labels.push(timeRange === '3d' || timeRange === '1w' ? `${formatDate(t)} ${formatTime(t)}` : formatTime(t));
     }
 
-    setAvgUtilization(((avgUtilSum / points)).toFixed(1) + '%');
+    // Helper: produce an oldest->now ordered history array for a machine
+    const getHistoryFor = (id: string) => {
+      const m = machines[id];
+      const pts = points;
+      const rangeMs = {
+        '5m': 5 * 60 * 1000,
+        '1h': 60 * 60 * 1000,
+        '3h': 3 * 60 * 60 * 1000,
+        '12h': 12 * 60 * 60 * 1000,
+        '1d': 24 * 60 * 60 * 1000,
+        '3d': 3 * 24 * 60 * 60 * 1000,
+        '1w': 7 * 24 * 60 * 60 * 1000,
+      }[timeRange] ?? 60 * 60 * 1000;
+      const nowTs = Date.now();
+
+      const currentValue = m ? (m.state === 'ALARM' || m.state === 'MAINTENANCE' ? 0 : m.currentUtil) : 0;
+      const history = Array.isArray(m?.utilHistory) ? m!.utilHistory! : [];
+      const sorted = [...history].sort((a, b) => a.timestamp - b.timestamp);
+
+      const values: number[] = [];
+      for (let i = 0; i < pts; i++) {
+        const targetTs = nowTs - Math.round(rangeMs * ((pts - 1 - i) / Math.max(1, pts - 1)));
+        const candidate = sorted.filter(point => point.timestamp <= targetTs).pop();
+        if (candidate) {
+          values.push(candidate.util);
+        } else if (sorted.length > 0) {
+          values.push(sorted[0].util);
+        } else {
+          values.push(currentValue);
+        }
+      }
+
+      if (values[values.length - 1] !== currentValue) {
+        values[values.length - 1] = currentValue;
+      }
+
+      return values;
+    };
+
+    const dataLineSEM: number[] = getHistoryFor('SEM-01');
+    const dataLineTEM: number[] = getHistoryFor('TEM-01');
+    const dataLineFIB: number[] = getHistoryFor('FIB-01');
+    const dataLineBAKE: number[] = getHistoryFor('BAKE-OVEN-01');
+    const dataLineETEST: number[] = getHistoryFor('E-TEST-02');
+    const dataLineXRD: number[] = getHistoryFor('XRD-01');
+
+    // compute average utilization across all machines and points
+    const totalSum = [dataLineSEM, dataLineTEM, dataLineFIB, dataLineBAKE, dataLineETEST, dataLineXRD].reduce((acc, arr) => acc + arr.reduce((s, v) => s + v, 0), 0);
+    const avg = totalSum / (points * 6);
+    setAvgUtilization(avg.toFixed(1) + '%');
 
     // Dynamic color helpers managing failure isolation mapping
-    const getBorderColor = (machId: string, defaultColor: string) => machines[machId].state === 'ALARM' ? '#ef4444' : defaultColor;
-    const getBgColor = (machId: string, defaultBg: string) => machines[machId].state === 'ALARM' ? 'rgba(239, 68, 68, 0.1)' : defaultBg;
+    const getBorderColor = (machId: string, defaultColor: string) => {
+      const m = machines[machId];
+      return m && m.state === 'ALARM' ? '#ef4444' : defaultColor;
+    };
+    const getBgColor = (machId: string, defaultBg: string) => {
+      const m = machines[machId];
+      return m && m.state === 'ALARM' ? 'rgba(239, 68, 68, 0.1)' : defaultBg;
+    };
 
     // Chart Options Shared Model Configuration
     const commonOptions = {
