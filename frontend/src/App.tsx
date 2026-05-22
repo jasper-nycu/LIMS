@@ -17,6 +17,7 @@ interface Owner {
 interface MachineHistoryPoint {
   timestamp: number;
   util: number;
+  state?: MachineState['state'];
 }
 
 interface MachineState {
@@ -46,6 +47,8 @@ const App: React.FC = () => {
 
   // User set to null (Public/Stateless mode)
   const [user, setUser] = useState<UserProfile | null>(null);
+  const [capacitySelectedMachineId, setCapacitySelectedMachineId] = useState<string>('');
+  const [capacityTimeRange, setCapacityTimeRange] = useState<string>('1h');
 
   const now = Date.now();
   const makeHistory = (entries: Array<[number, number]>) =>
@@ -96,7 +99,7 @@ const App: React.FC = () => {
     },
     'TEM-01': {
       id: 'TEM-01',
-      state: 'IDLE',
+      state: 'MAINTENANCE',
       loaded: [],
       cap: 10,
       expKey: 'exp_deep',
@@ -106,12 +109,6 @@ const App: React.FC = () => {
       owners: [{ initials: 'RK', color: 'bg-red-500' }],
       loadedCount: 0,
       utilHistory: makeHistory([
-        [45, 0],
-        [30, 0],
-        [15, 10],
-        [8, 22],
-        [6, 0],
-        [3, 0],
         [0, 0]
       ])
     },
@@ -185,9 +182,11 @@ const App: React.FC = () => {
     setMachines(prev => {
       const m = prev[id] ?? { id, state: 'IDLE', loaded: [], cap: 1, expKey: '', name: id, error: null, currentUtil: 0, owners: [], loadedCount: 0, utilHistory: Array.from({ length: 7 }, () => ({ timestamp: Date.now(), util: 0 })) };
       const newUtil = patch.currentUtil ?? m.currentUtil;
-      const oldHist = m.utilHistory ?? Array.from({ length: 7 }, () => ({ timestamp: Date.now(), util: m.currentUtil ?? 0 }));
-      const newHist = (patch.currentUtil !== undefined && patch.currentUtil !== null)
-        ? [{ timestamp: Date.now(), util: newUtil }, ...oldHist].slice(0, 100)
+      // Clone existing history entries to avoid accidental shared references between machines
+      const oldHist = (m.utilHistory ?? Array.from({ length: 7 }, () => ({ timestamp: Date.now(), util: m.currentUtil ?? 0 }))).map(p => ({ ...p }));
+      const shouldAppendHistory = patch.currentUtil !== undefined && patch.currentUtil !== null || patch.state !== undefined;
+      const newHist = shouldAppendHistory
+        ? [{ timestamp: Date.now(), util: newUtil, state: patch.state ?? m.state }, ...oldHist].slice(0, 100)
         : oldHist;
       return { ...prev, [id]: { ...m, ...patch, currentUtil: newUtil, utilHistory: newHist } };
     });
@@ -214,7 +213,9 @@ const App: React.FC = () => {
               id: 'BAKE-OVEN-01', state: 'IDLE', cap: 50, currentUtil: 0, loadedCount: 0,
               utilHistory: [ { timestamp: now - 30 * 60 * 1000, util: 30 }, { timestamp: now, util: 0 } ]
             },
-            { id: 'TEM-01', state: 'IDLE', cap: 10, currentUtil: 0, loadedCount: 0, utilHistory: [ { timestamp: now - 2 * 60 * 1000, util: 0 }, { timestamp: now, util: 0 } ] },
+            { id: 'TEM-01', state: 'MAINTENANCE', cap: 10, currentUtil: 0, loadedCount: 0, utilHistory: [
+              { timestamp: now, util: 0 }
+            ] },
             { id: 'FIB-01', state: 'IDLE', cap: 1, currentUtil: 0, loadedCount: 0, utilHistory: [ { timestamp: now - 10 * 60 * 1000, util: 0 }, { timestamp: now, util: 0 } ] },
             { id: 'E-TEST-02', state: 'PROCESSING', cap: 50, currentUtil: 84, loadedCount: 42, utilHistory: [ { timestamp: now - 15 * 60 * 1000, util: 84 }, { timestamp: now, util: 84 } ] },
             { id: 'XRD-01', state: 'IDLE', cap: 25, currentUtil: 0, loadedCount: 0, utilHistory: [ { timestamp: now - 60 * 60 * 1000, util: 0 }, { timestamp: now, util: 0 } ] }
@@ -315,6 +316,12 @@ const App: React.FC = () => {
     setActiveView('view-factory-request'); // Redirect on logout
   };
 
+  const handleLoginSuccess = (nextUser: UserProfile) => {
+    setCapacitySelectedMachineId('');
+    setCapacityTimeRange('1h');
+    setUser(nextUser);
+  };
+
   const toggleSidebar = () => setIsSidebarOpen(prev => !prev);
   const navigateToProfile = () => setActiveView('view-my-profile');
   
@@ -357,7 +364,16 @@ const App: React.FC = () => {
       case 'view-manager-dashboard':
         return <ManagerDashboardView language={language} onNotify={addNotification} />;
       case 'view-capacity-analytics':
-        return <CapacityAnalyticsView language={language} machines={machines} />;
+        return (
+          <CapacityAnalyticsView
+            language={language}
+            machines={machines}
+            selectedMachineId={capacitySelectedMachineId}
+            onSelectedMachineIdChange={setCapacitySelectedMachineId}
+            timeRange={capacityTimeRange}
+            onTimeRangeChange={setCapacityTimeRange}
+          />
+        );
       case 'view-my-profile':
         return <MyProfileView 
           language={language} 
@@ -389,7 +405,7 @@ const App: React.FC = () => {
       <AuthView 
         language={language}
         onLanguageChange={setLanguage}
-        onLoginSuccess={setUser}
+        onLoginSuccess={handleLoginSuccess}
         onNotify={addNotification}
       />
     );

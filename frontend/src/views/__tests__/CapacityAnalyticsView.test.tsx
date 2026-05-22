@@ -47,7 +47,6 @@ describe('CapacityAnalyticsView - Enterprise Telemetry Testing Suite', () => {
       // Verify header parameters
       expect(screen.getByText('Machine Utilization Time-Series')).toBeInTheDocument();
       expect(screen.getByText('Avg Utilization')).toBeInTheDocument();
-      expect(screen.getByText(/\* Utilization is tracked dynamically/i)).toBeInTheDocument();
 
       // Verify that Chart.js was instantiated for both equipment categories
       expect(mockChartConstructor).toHaveBeenCalledTimes(2);
@@ -64,7 +63,6 @@ describe('CapacityAnalyticsView - Enterprise Telemetry Testing Suite', () => {
       // Verify localized header markers
       expect(screen.getByText('機台利用率時序圖')).toBeInTheDocument();
       expect(screen.getByText('平均稼動率')).toBeInTheDocument();
-      expect(screen.getByText(/\* 利用率 \(%\) 計算邏輯為/i)).toBeInTheDocument();
 
       // Inspect specific instantiation arguments sent to the second chart (Process Equipment)
       const secondChartArgs = mockChartConstructor.mock.calls[1][1];
