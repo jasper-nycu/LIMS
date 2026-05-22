@@ -48,8 +48,8 @@ describe('CapacityAnalyticsView - Enterprise Telemetry Testing Suite', () => {
       expect(screen.getByText('Machine Utilization Time-Series')).toBeInTheDocument();
       expect(screen.getByText('Avg Utilization')).toBeInTheDocument();
 
-      // Verify that Chart.js was instantiated for both equipment categories
-      expect(mockChartConstructor).toHaveBeenCalledTimes(2);
+      // Verify that Chart.js was instantiated for both equipment categories and status summary
+      expect(mockChartConstructor).toHaveBeenCalledTimes(3);
 
       // Inspect specific instantiation arguments sent to the first chart (Analysis Equipment)
       const firstChartArgs = mockChartConstructor.mock.calls[0][1];
@@ -86,11 +86,11 @@ describe('CapacityAnalyticsView - Enterprise Telemetry Testing Suite', () => {
       // Simulate operator swapping from Last 1 Hour ('1h') to Last 1 Week ('1w')
       fireEvent.change(selectElement, { target: { value: '1w' } });
 
-      // Assert previous charts were safely discarded (triggered twice: via useEffect return cleanup and inline safety re-init checks)
-      expect(mockDestroy).toHaveBeenCalledTimes(4);
+      // Assert previous charts were safely discarded (triggered via useEffect cleanup and inline re-init checks)
+      expect(mockDestroy).toHaveBeenCalledTimes(6);
 
       // Assert that new chart engines were re-provisioned with the newly calculated intervals
-      expect(mockChartConstructor).toHaveBeenCalledTimes(2);
+      expect(mockChartConstructor).toHaveBeenCalledTimes(3);
 
       // Verify that the newest chart configuration includes the 'Now' token on its final coordinate node
       const currentChartConfig = mockChartConstructor.mock.calls[0][1];
@@ -109,7 +109,7 @@ describe('CapacityAnalyticsView - Enterprise Telemetry Testing Suite', () => {
       unmount();
 
       // Strict memory guardrail check: Chart memory pointers must be completely detached
-      expect(mockDestroy).toHaveBeenCalledTimes(2);
+      expect(mockDestroy).toHaveBeenCalledTimes(3);
     });
   });
 });

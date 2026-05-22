@@ -39,7 +39,7 @@ const defaultMachineState: Record<string, MachineState> = {
 
 export const LabOperationsView: React.FC<LabOperationsViewProps> = ({ language, onNotify, machines = defaultMachineState, updateMachine, initialWips = [] }) => {
   const [localMachines, setLocalMachines] = useState<Record<string, MachineState>>(machines);
-  const sharedMachines = machines && Object.keys(machines).length > 0 ? machines : localMachines;
+  const sharedMachines = updateMachine ? machines : localMachines;
   const updateMachineLocal = (id: string, patch: Partial<MachineState>) => {
     setLocalMachines(prev => {
       const m = prev[id] ?? defaultMachineState[id] ?? { id, state: 'IDLE', loaded: [], cap: 1, expKey: '', name: id, error: null, currentUtil: 0, owners: [], loadedCount: 0, utilHistory: Array(7).fill(0) } as MachineState;
