@@ -47,13 +47,137 @@ const App: React.FC = () => {
   // User set to null (Public/Stateless mode)
   const [user, setUser] = useState<UserProfile | null>(null);
 
+  const now = Date.now();
+  const makeHistory = (entries: Array<[number, number]>) =>
+    entries.map(([minutesAgo, util]) => ({ timestamp: now - minutesAgo * 60_000, util }));
+
   const [machines, setMachines] = useState<Record<string, MachineState>>({
-    'SEM-01': { id: 'SEM-01', state: 'PROCESSING', loaded: Array.from({ length: 18 }, (_, i) => `W-10${(i+1).toString().padStart(2, '0')}`), cap: 25, expKey: 'exp_sem', name: 'Surface Scan (SEM)', error: null, currentUtil: 72, owners: [{ initials: 'MW', color: 'bg-slate-600' }, { initials: 'JS', color: 'bg-blue-400' }], loadedCount: 18, utilHistory: Array.from({ length: 7 }, () => ({ timestamp: Date.now(), util: 72 })) },
-    'BAKE-OVEN-01': { id: 'BAKE-OVEN-01', state: 'IDLE', loaded: [], cap: 50, expKey: 'exp_bake', name: 'High-Temp Bake', error: null, currentUtil: 0, owners: [{ initials: 'SC', color: 'bg-accent-sky' }], loadedCount: 0, utilHistory: Array.from({ length: 7 }, () => ({ timestamp: Date.now(), util: 0 })) },
-    'TEM-01': { id: 'TEM-01', state: 'IDLE', loaded: [], cap: 10, expKey: 'exp_deep', name: 'Deep Analysis', error: null, currentUtil: 0, owners: [{ initials: 'RK', color: 'bg-red-500' }], loadedCount: 0, utilHistory: Array.from({ length: 7 }, () => ({ timestamp: Date.now(), util: 0 })) },
-    'FIB-01': { id: 'FIB-01', state: 'IDLE', loaded: [], cap: 1, expKey: 'exp_fib', name: 'Focused Ion Beam', error: null, currentUtil: 0, owners: [{ initials: 'CH', color: 'bg-indigo-500' }], loadedCount: 0, utilHistory: Array.from({ length: 7 }, () => ({ timestamp: Date.now(), util: 0 })) },
-    'E-TEST-02': { id: 'E-TEST-02', state: 'PROCESSING', loaded: Array.from({ length: 42 }, (_, i) => `W-20${(i+1).toString().padStart(2, '0')}`), cap: 50, expKey: 'exp_etest', name: 'Electrical Test', error: null, currentUtil: 84, owners: [{ initials: 'AS', color: 'bg-emerald-600' }], loadedCount: 42, utilHistory: Array.from({ length: 7 }, () => ({ timestamp: Date.now(), util: 84 })) },
-    'XRD-01': { id: 'XRD-01', state: 'IDLE', loaded: [], cap: 25, expKey: 'exp_xrd', name: 'X-Ray Diffraction', error: null, currentUtil: 0, owners: [{ initials: 'TH', color: 'bg-amber-500' }], loadedCount: 0, utilHistory: Array.from({ length: 7 }, () => ({ timestamp: Date.now(), util: 0 })) }
+    'SEM-01': {
+      id: 'SEM-01',
+      state: 'PROCESSING',
+      loaded: Array.from({ length: 18 }, (_, i) => `W-10${(i+1).toString().padStart(2, '0')}`),
+      cap: 25,
+      expKey: 'exp_sem',
+      name: 'Surface Scan (SEM)',
+      error: null,
+      currentUtil: 72,
+      owners: [{ initials: 'MW', color: 'bg-slate-600' }, { initials: 'JS', color: 'bg-blue-400' }],
+      loadedCount: 18,
+      utilHistory: makeHistory([
+        [60, 65],
+        [50, 55],
+        [40, 82],
+        [20, 0],
+        [12, 28],
+        [5, 60],
+        [0, 72]
+      ])
+    },
+    'BAKE-OVEN-01': {
+      id: 'BAKE-OVEN-01',
+      state: 'IDLE',
+      loaded: [],
+      cap: 50,
+      expKey: 'exp_bake',
+      name: 'High-Temp Bake',
+      error: null,
+      currentUtil: 0,
+      owners: [{ initials: 'SC', color: 'bg-accent-sky' }],
+      loadedCount: 0,
+      utilHistory: makeHistory([
+        [90, 20],
+        [60, 40],
+        [30, 50],
+        [18, 0],
+        [10, 0],
+        [4, 0],
+        [0, 0]
+      ])
+    },
+    'TEM-01': {
+      id: 'TEM-01',
+      state: 'IDLE',
+      loaded: [],
+      cap: 10,
+      expKey: 'exp_deep',
+      name: 'Deep Analysis',
+      error: null,
+      currentUtil: 0,
+      owners: [{ initials: 'RK', color: 'bg-red-500' }],
+      loadedCount: 0,
+      utilHistory: makeHistory([
+        [45, 0],
+        [30, 0],
+        [15, 10],
+        [8, 22],
+        [6, 0],
+        [3, 0],
+        [0, 0]
+      ])
+    },
+    'FIB-01': {
+      id: 'FIB-01',
+      state: 'IDLE',
+      loaded: [],
+      cap: 1,
+      expKey: 'exp_fib',
+      name: 'Focused Ion Beam',
+      error: null,
+      currentUtil: 0,
+      owners: [{ initials: 'CH', color: 'bg-indigo-500' }],
+      loadedCount: 0,
+      utilHistory: makeHistory([
+        [55, 0],
+        [38, 0],
+        [22, 20],
+        [16, 0],
+        [8, 0],
+        [2, 0],
+        [0, 0]
+      ])
+    },
+    'E-TEST-02': {
+      id: 'E-TEST-02',
+      state: 'PROCESSING',
+      loaded: Array.from({ length: 42 }, (_, i) => `W-20${(i+1).toString().padStart(2, '0')}`),
+      cap: 50,
+      expKey: 'exp_etest',
+      name: 'Electrical Test',
+      error: null,
+      currentUtil: 84,
+      owners: [{ initials: 'AS', color: 'bg-emerald-600' }],
+      loadedCount: 42,
+      utilHistory: makeHistory([
+        [70, 92],
+        [50, 88],
+        [35, 80],
+        [25, 78],
+        [12, 84],
+        [6, 84],
+        [0, 84]
+      ])
+    },
+    'XRD-01': {
+      id: 'XRD-01',
+      state: 'IDLE',
+      loaded: [],
+      cap: 25,
+      expKey: 'exp_xrd',
+      name: 'X-Ray Diffraction',
+      error: null,
+      currentUtil: 0,
+      owners: [{ initials: 'TH', color: 'bg-amber-500' }],
+      loadedCount: 0,
+      utilHistory: makeHistory([
+        [120, 0],
+        [90, 10],
+        [55, 18],
+        [34, 12],
+        [18, 0],
+        [7, 0],
+        [0, 0]
+      ])
+    }
   });
 
   // Update a machine partially and maintain utilHistory (newest-first)
