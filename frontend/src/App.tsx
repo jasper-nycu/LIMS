@@ -195,43 +195,6 @@ const App: React.FC = () => {
   useEffect(() => {
     const fetchMachines = async () => {
       try {
-        // Demo/mock mode: if URL contains ?demoMock, synthesize timestamped unloads
-        if (typeof window !== 'undefined' && window.location && window.location.search && window.location.search.includes('demoMock')) {
-          const now = Date.now();
-          const data = [
-            {
-              id: 'SEM-01', state: 'PROCESSING', cap: 25, currentUtil: 72, loadedCount: 18,
-              // create history with an unload 6 minutes ago (outside 5m), and a short unload 2 minutes ago
-              utilHistory: [
-                { timestamp: now - 60 * 60 * 1000, util: 60 },
-                { timestamp: now - 6 * 60 * 1000, util: 0 },
-                { timestamp: now - 2 * 60 * 1000, util: 72 },
-                { timestamp: now, util: 72 }
-              ]
-            },
-            {
-              id: 'BAKE-OVEN-01', state: 'IDLE', cap: 50, currentUtil: 0, loadedCount: 0,
-              utilHistory: [ { timestamp: now - 30 * 60 * 1000, util: 30 }, { timestamp: now, util: 0 } ]
-            },
-            { id: 'TEM-01', state: 'MAINTENANCE', cap: 10, currentUtil: 0, loadedCount: 0, utilHistory: [
-              { timestamp: now, util: 0 }
-            ] },
-            { id: 'FIB-01', state: 'IDLE', cap: 1, currentUtil: 0, loadedCount: 0, utilHistory: [ { timestamp: now - 10 * 60 * 1000, util: 0 }, { timestamp: now, util: 0 } ] },
-            { id: 'E-TEST-02', state: 'PROCESSING', cap: 50, currentUtil: 84, loadedCount: 42, utilHistory: [ { timestamp: now - 15 * 60 * 1000, util: 84 }, { timestamp: now, util: 84 } ] },
-            { id: 'XRD-01', state: 'IDLE', cap: 25, currentUtil: 0, loadedCount: 0, utilHistory: [ { timestamp: now - 60 * 60 * 1000, util: 0 }, { timestamp: now, util: 0 } ] }
-          ];
-          setMachines((prev) => {
-            const next = { ...prev };
-            data.forEach((m: any) => {
-              if (next[m.id]) {
-                next[m.id] = { ...next[m.id], ...m, utilHistory: (m.utilHistory || []).slice().sort((a: any, b: any) => a.timestamp - b.timestamp) };
-              }
-            });
-            return next;
-          });
-          return;
-        }
-
         const res = await fetch('/api/machines');
         if (!res.ok) return;
         const data = await res.json();

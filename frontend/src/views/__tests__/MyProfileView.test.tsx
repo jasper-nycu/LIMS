@@ -189,6 +189,16 @@ describe('MyProfileView - Industrial Robustness & RBAC Compliance Tests', () => 
   });
 
   describe('3. Component Architecture and Synchronous Flow Consistency', () => {
+    it('should render an uploaded Base64 avatar from user profile state', () => {
+      const userWithAvatar: UserProfile = {
+        ...createMockUser('ROLE_PUBLIC'),
+        avatarBase64: 'data:image/png;base64,aGVsbG8=',
+      };
+      const { container } = render(<MyProfileView {...defaultProps(userWithAvatar)} />);
+
+      expect(container.querySelector('img')).toHaveAttribute('src', userWithAvatar.avatarBase64);
+    });
+
     it('should assert strong synchronization across the avatar subtitle and read-only Primary Role inputbox', () => {
       const { container } = render(<MyProfileView {...defaultProps(createMockUser('ROLE_LAB_MANAGER'))} />);
 
