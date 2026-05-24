@@ -95,6 +95,20 @@ CREATE TABLE IF NOT EXISTS wip_tasks (
     dispatched_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Lab-ops backend: incremental additions (idempotent, safe for existing databases)
+ALTER TABLE wip_tasks ADD COLUMN IF NOT EXISTS recipe_id  VARCHAR(100) REFERENCES recipes(recipe_id);
+ALTER TABLE wip_tasks ADD COLUMN IF NOT EXISTS priority   VARCHAR(20) DEFAULT 'NORMAL';
+ALTER TABLE wip_tasks ADD COLUMN IF NOT EXISTS completed_at TIMESTAMP;
+
+CREATE TABLE IF NOT EXISTS notifications (
+    notification_id BIGSERIAL PRIMARY KEY,
+    machine_id VARCHAR(50) REFERENCES machines(machine_id),
+    type VARCHAR(20) NOT NULL,
+    title VARCHAR(200) NOT NULL,
+    description TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 -- 2. Data Insertion (DML)
 -- ------------------------------------------
 
