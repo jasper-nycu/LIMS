@@ -5,3 +5,9 @@
 
 # Explicitly allow the sample file to be committed
 !.env.sample
+
+# Local log files generated at runtime
+*.log
+
+# Claude Code local memory (not part of the project)
+.claude/
