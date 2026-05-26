@@ -118,20 +118,53 @@ export const AuthView: React.FC<AuthViewProps> = ({
     }, 1000);
   };
 
-  const handleLoginSubmit = (e: React.FormEvent) => {
+  const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Simulate structural user profile initialization mapping back to App layout
-    const fallbackName = loginForm.empId === 'TS-0001' ? 'Jasper Li' : 'Standard Operator';
-    const inferredRole = loginForm.empId === 'TS-0001' ? 'ROLE_SYSADMIN' : 'ROLE_LAB_OPERATOR';
+    
+    try {
+      const response = await fetch('http://localhost:8080/api/v1/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(loginForm)
+      });
 
-    onNotify(null, 'Auth Success', ui.notif_welcome, 'success');
-    onLoginSuccess({
-      name: fallbackName,
-      role: inferredRole
-    });
+      // Read as text first to safely prevent JSON parsing crashes on HTTP 403/500 errors
+      const responseText = await response.text();
+      let responseData: any = {};
+      try {
+        responseData = responseText ? JSON.parse(responseText) : {};
+      } catch (e) {
+        // Fallback for non-JSON content
+      }
+
+      if (!response.ok) {
+        setAlertModal({ 
+          show: true, 
+          title: language === 'en' ? 'Login Failed' : '登入失敗', 
+          message: responseData.message || `HTTP Error ${response.status}`, 
+          type: 'error' 
+        });
+        return;
+      }
+
+      const data = responseData;
+      
+      // Store the JWT token securely (localStorage is fine for this phase)
+      localStorage.setItem('lims_jwt', data.token);
+
+      onNotify(null, 'Auth Success', ui.notif_welcome, 'success');
+      onLoginSuccess(data.user); // Pass the real UserProfile to App.tsx
+    } catch (error) {
+      setAlertModal({ 
+        show: true, 
+        title: language === 'en' ? 'Network Error' : '連線失敗', 
+        message: 'Cannot connect to backend server.', 
+        type: 'error' 
+      });
+    }
   };
 
-  const handleRegisterClick = (e: React.FormEvent) => {
+  const handleRegisterClick = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!regForm.email.includes('@')) {
       setAlertModal({ show: true, title: language === 'en' ? 'Validation Error' : '驗證錯誤', message: ui.validation_email, type: 'error' });
@@ -146,10 +179,37 @@ export const AuthView: React.FC<AuthViewProps> = ({
       return;
     }
 
-    // Open verification process window and run timer loops
-    setTotpCode('');
-    setShowTotpModal(true);
-    startCountdown();
+    try {
+      // Initiate Registration and Trigger TOTP Email
+      const response = await fetch('http://localhost:8080/api/v1/auth/register/initiate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(regForm)
+      });
+
+      const responseText = await response.text();
+      let responseData: any = {};
+      try {
+        responseData = responseText ? JSON.parse(responseText) : {};
+      } catch (e) {}
+
+      if (!response.ok) {
+        setAlertModal({ 
+          show: true, 
+          title: language === 'en' ? 'Registration Error' : '註冊失敗', 
+          message: responseData.message || `HTTP Error ${response.status}: Access Denied or Security Blocked.`, 
+          type: 'error' 
+        });
+        return;
+      }
+
+      // Open verification process window and run timer loops ONLY if backend succeeded
+      setTotpCode('');
+      setShowTotpModal(true);
+      startCountdown();
+    } catch (error) {
+      setAlertModal({ show: true, title: language === 'en' ? 'Network Error' : '連線失敗', message: 'Cannot connect to backend server.', type: 'error' });
+    }
   };
 
   const handleResendCode = () => {
@@ -163,19 +223,48 @@ export const AuthView: React.FC<AuthViewProps> = ({
     startCountdown();
   };
 
-  const handleVerifyTOTP = () => {
+  const handleVerifyTOTP = async () => {
     if (totpCode.length !== 6 || isNaN(Number(totpCode))) {
       setAlertModal({ show: true, title: language === 'en' ? 'Verification Error' : '驗證錯誤', message: ui.validation_totp, type: 'error' });
       return;
     }
 
-    if (timerRef.current) clearInterval(timerRef.current);
-    setCountdown(0);
-    setShowTotpModal(false);
-    setIsRegisterMode(false); // Route back to sign in segment
+    try {
+      // Verify TOTP and provision user to PostgreSQL
+      const response = await fetch('http://localhost:8080/api/v1/auth/register/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: regForm.email, code: totpCode })
+      });
 
-    // Replace native browser alert with industrial custom modal
-    setAlertModal({ show: true, title: language === 'en' ? 'Registration Successful' : '註冊成功', message: ui.notif_reg_success, type: 'success' });
+      const responseText = await response.text();
+      let responseData: any = {};
+      try {
+        responseData = responseText ? JSON.parse(responseText) : {};
+      } catch (e) {}
+
+      if (!response.ok) {
+        setAlertModal({ 
+          show: true, 
+          title: language === 'en' ? 'Verification Error' : '驗證失敗', 
+          message: responseData.message || `HTTP Error ${response.status}`, 
+          type: 'error' 
+        });
+        return;
+      }
+
+      const data = responseData;
+
+      // Clean up UI state on success
+      if (timerRef.current) clearInterval(timerRef.current);
+      setCountdown(0);
+      setShowTotpModal(false);
+      setIsRegisterMode(false); // Route back to sign in segment
+
+      setAlertModal({ show: true, title: language === 'en' ? 'Registration Successful' : '註冊成功', message: data.message, type: 'success' });
+    } catch (error) {
+      setAlertModal({ show: true, title: language === 'en' ? 'Network Error' : '連線失敗', message: 'Cannot connect to backend server.', type: 'error' });
+    }
   };
 
   return (

@@ -6,29 +6,39 @@
 
 ```text
 frontend/
-├── index.html                    # 網頁的 Metadata 以及 React 的掛載點
-└── src/
-    ├── assets/                   # 靜態資源
-    ├── components/layout/        # 全域佈局重複使用組件
-    │   ├── __tests__/            # 佈局組件的單元測試 (Header, Sidebar 測試)
-    │   ├── Header.tsx            # 頂部導覽列 (語系切換、通知、使用者資訊)
-    │   └── Sidebar.tsx           # 側邊導覽選單 (負責視圖導覽與 RWD 縮放)
-    │
-    ├── views/                        # 頁面視圖
-    │   ├── __tests__/                # 頁面邏輯單元測試 (Auth, FabRequest, LabOps 等測試)
-    │   ├── AuthView.tsx              # 登入與註冊頁面
-    │   ├── FabRequestView.tsx        # 廠區建立委託單
-    │   ├── LabOperationsView.tsx     # 實驗室人員操作
-    │   ├── ManagerDashboardView.tsx  # 實驗室主管簽核
-    │   ├── CapacityAnalyticsView.tsx # 機台分析圖表
-    │   └── MyProfileView.tsx         # 個人帳號設定
-    │
-    ├── test/                     # 測試環境配置
-    │   └── setup.ts              # Vitest 環境設定 (引入 jest-dom 擴充)
-    │
-    ├── App.tsx                   # 應用程式根組件 (負責全域狀態管理與視圖跳轉邏輯)
-    ├── main.tsx                  # 程式進入點 (負責將 React 掛載至 HTML DOM)
-    └── index.css                 # 全域樣式設定與 Tailwind CSS v4 主題定義
+├── src/
+│   ├── components/layout/            # 全域佈局重複使用組件
+│   │   ├── __tests__/                # 佈局組件的單元測試 (Header, Sidebar 測試)
+│   │   ├── Header.tsx                # 頂部導覽列 (語系切換、通知、使用者資訊)
+│   │   └── Sidebar.tsx               # 側邊導覽選單 (負責視圖導覽與 RWD 縮放)
+│   │
+│   ├── views/                        # 頁面視圖
+│   │   ├── __tests__/                # 頁面邏輯單元測試 (Auth, FabRequest, LabOps 等測試)
+│   │   ├── AuthView.tsx              # 登入與註冊頁面
+│   │   ├── FabRequestView.tsx        # 廠區建立委託單
+│   │   ├── LabOperationsView.tsx     # 實驗室人員操作
+│   │   ├── ManagerDashboardView.tsx  # 實驗室主管簽核
+│   │   ├── CapacityAnalyticsView.tsx # 機台分析圖表
+│   │   └── MyProfileView.tsx         # 個人帳號設定
+│   │
+│   ├── test/                         # 測試環境配置
+│   │   └── setup.ts                  # Vitest 環境設定 (引入 jest-dom 擴充)
+│   │
+│   ├── App.tsx                       # 應用程式根組件 (負責全域狀態管理與視圖跳轉邏輯)
+│   ├── index.css                     # 全域樣式設定與 Tailwind CSS v4 主題定義
+│   └── main.tsx                      # 程式進入點 (負責將 React 掛載至 HTML DOM)
+│
+├── .gitignore            # 設定 Git 版控應忽略的前端檔案 (如 node_modules)
+├── eslint.config.js      # ESLint 程式碼風格與語法檢查工具的設定檔
+├── index.html            # 網頁的 Metadata 以及 React 的掛載點
+├── package-lock.json     # 鎖定當前所有依賴套件的精確版本號，確保團隊環境一致
+├── package.json          # 記錄前端專案資訊、依賴套件清單與自訂的 npm 執行腳本
+├── postcss.config.js     # 讀取 Tailwind CSS 
+├── README.md
+├── tsconfig.app.json     # 針對 React 應用程式的 TypeScript 編譯設定
+├── tsconfig.json         # TypeScript 基礎設定檔 (繼承並整合其他 tsconfig)
+├── tsconfig.node.json    # 針對 Node.js 環境 (如 vite.config.ts) 的 TypeScript 設定
+└── vite.config.ts        # Vite 打包工具的核心設定檔 (例如設定 proxy 或 plugins)
 ```
 
 ### 核心設計重點
