@@ -15,8 +15,6 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import java.util.List;
 
-// MERGE NOTE: main branch also has this file with JWT auth rules.
-// When merging, keep main's JWT filter chain and ADD the /ws/** + /api/machines/** permits below.
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
@@ -35,9 +33,9 @@ public class SecurityConfig {
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .csrf(AbstractHttpConfigurer::disable)
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/ws/**").permitAll()        // WebSocket handshake
-                .requestMatchers("/api/machines/**").permitAll() // Machine REST API
-                .requestMatchers("/api/v1/auth/**").permitAll()  // Auth endpoints (from main)
+                .requestMatchers("/ws/**").permitAll()
+                .requestMatchers("/api/machines/**").permitAll()
+                .requestMatchers("/api/v1/auth/**").permitAll()
                 .requestMatchers("/error").permitAll()
                 .anyRequest().authenticated()
             );

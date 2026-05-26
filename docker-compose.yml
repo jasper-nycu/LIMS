@@ -13,6 +13,25 @@ services:
       - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
     restart: unless-stopped
 
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: lims_backend
+    ports:
+      - "8080:8080"
+    environment:
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${DB_NAME}
+      SPRING_DATASOURCE_USERNAME: ${DB_USER}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
+      SPRING_PROFILES_ACTIVE: dev
+    depends_on:
+      - postgres
+    restart: unless-stopped
+
   pgadmin:
     image: dpage/pgadmin4
     container_name: lims_pgadmin
