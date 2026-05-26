@@ -1,9 +1,11 @@
 package com.tsmc.lims.backend.controller;
 
 import com.tsmc.lims.backend.dto.ApiResponse;
+import com.tsmc.lims.backend.dto.DispatchRequest;
 import com.tsmc.lims.backend.dto.EmgUnloadRequest;
-import com.tsmc.lims.backend.entity.Machine;
-import com.tsmc.lims.backend.service.MachineStateService;
+import com.tsmc.lims.backend.dto.MachineResponse;
+import com.tsmc.lims.backend.dto.NameRequest;
+import com.tsmc.lims.backend.service.MachineService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -17,54 +19,75 @@ import java.util.List;
 @CrossOrigin(origins = "*")
 public class MachineController {
 
-    private final MachineStateService machineStateService;
+    private final MachineService machineService;
 
     @GetMapping
-    public ResponseEntity<ApiResponse<List<Machine>>> getAll() {
-        return ResponseEntity.ok(ApiResponse.ok("OK", machineStateService.findAll()));
+    public ResponseEntity<ApiResponse<List<MachineResponse>>> getAll() {
+        return ResponseEntity.ok(ApiResponse.ok("OK", machineService.findAll()));
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<ApiResponse<Machine>> getById(@PathVariable String id) {
-        return ResponseEntity.ok(ApiResponse.ok("OK", machineStateService.findById(id)));
+    public ResponseEntity<ApiResponse<MachineResponse>> getById(@PathVariable String id) {
+        return ResponseEntity.ok(ApiResponse.ok("OK", machineService.findById(id)));
     }
 
-    /** Flow 1: Normal unload — PROCESSING → IDLE, wafers → COMPLETED */
+    /** Wafer FSM step 1: Dispatch wafers → PROCESSING */
+    @PostMapping("/{id}/dispatch")
+    public ResponseEntity<ApiResponse<MachineResponse>> dispatch(
+            @PathVariable String id,
+            @Valid @RequestBody DispatchRequest req) {
+        req.setMachineId(id);
+        return ResponseEntity.ok(ApiResponse.ok("Dispatch successful", machineService.dispatch(id, req)));
+    }
+
+    /** Wafer FSM flow 1: Normal unload → IDLE, wafers → COMPLETED */
     @PostMapping("/{id}/unload")
-    public ResponseEntity<ApiResponse<Machine>> unload(@PathVariable String id) {
-        return ResponseEntity.ok(ApiResponse.ok("Unload successful", machineStateService.unload(id)));
+    public ResponseEntity<ApiResponse<MachineResponse>> unload(@PathVariable String id) {
+        return ResponseEntity.ok(ApiResponse.ok("Unload successful", machineService.unload(id)));
     }
 
-    /** Flow 2 & 3: Emergency unload (REUSE or SCRAP) */
+    /** Wafer FSM flow 2 & 3: Emergency unload (REUSE or SCRAP) */
     @PostMapping("/{id}/emg-unload")
-    public ResponseEntity<ApiResponse<Machine>> emgUnload(
+    public ResponseEntity<ApiResponse<MachineResponse>> emgUnload(
             @PathVariable String id,
             @Valid @RequestBody EmgUnloadRequest req) {
-        return ResponseEntity.ok(ApiResponse.ok(
-                "EMG unload processed", machineStateService.emgUnload(id, req.getAction())));
+        return ResponseEntity.ok(ApiResponse.ok("EMG unload processed", machineService.emgUnload(id, req.getAction())));
     }
 
-    /** Flow 4 & 5 (A): Simulate error — PROCESSING → ALARM */
+    /** Wafer FSM flow 4 & 5 (A): Simulate error → ALARM */
     @PostMapping("/{id}/simulate-error")
-    public ResponseEntity<ApiResponse<Machine>> simulateError(@PathVariable String id) {
-        return ResponseEntity.ok(ApiResponse.ok("Error simulated", machineStateService.simulateError(id)));
+    public ResponseEntity<ApiResponse<MachineResponse>> simulateError(@PathVariable String id) {
+        return ResponseEntity.ok(ApiResponse.ok("Error simulated", machineService.simulateError(id)));
     }
 
-    /** Flow 4 (B): Resolve alarm — ALARM → PROCESSING */
+    /** Wafer FSM flow 4 (B): Resolve alarm → PROCESSING */
     @PostMapping("/{id}/resolve-alarm")
-    public ResponseEntity<ApiResponse<Machine>> resolveAlarm(@PathVariable String id) {
-        return ResponseEntity.ok(ApiResponse.ok("Alarm resolved", machineStateService.resolveAlarm(id)));
+    public ResponseEntity<ApiResponse<MachineResponse>> resolveAlarm(@PathVariable String id) {
+        return ResponseEntity.ok(ApiResponse.ok("Alarm resolved", machineService.resolveAlarm(id)));
     }
 
-    /** Flow 5 (B): ALARM → MAINTENANCE */
+    /** Wafer FSM flow 5 (B): ALARM → MAINTENANCE */
     @PostMapping("/{id}/maintenance")
-    public ResponseEntity<ApiResponse<Machine>> toMaintenance(@PathVariable String id) {
-        return ResponseEntity.ok(ApiResponse.ok("Machine under maintenance", machineStateService.toMaintenance(id)));
+    public ResponseEntity<ApiResponse<MachineResponse>> toMaintenance(@PathVariable String id) {
+        return ResponseEntity.ok(ApiResponse.ok("Machine under maintenance", machineService.toMaintenance(id)));
     }
 
-    /** Flow 5 (C): MAINTENANCE → PROCESSING */
+    /** Wafer FSM flow 5 (C): MAINTENANCE → PROCESSING */
     @PostMapping("/{id}/online")
-    public ResponseEntity<ApiResponse<Machine>> setOnline(@PathVariable String id) {
-        return ResponseEntity.ok(ApiResponse.ok("Machine online", machineStateService.setOnline(id)));
+    public ResponseEntity<ApiResponse<MachineResponse>> setOnline(@PathVariable String id) {
+        return ResponseEntity.ok(ApiResponse.ok("Machine online", machineService.setOnline(id)));
+    }
+
+    /** Recipe management */
+    @GetMapping("/{id}/recipes")
+    public ResponseEntity<ApiResponse<List<String>>> getRecipes(@PathVariable String id) {
+        return ResponseEntity.ok(ApiResponse.ok("OK", machineService.getRecipes(id)));
+    }
+
+    @PostMapping("/{id}/recipes")
+    public ResponseEntity<ApiResponse<List<String>>> addRecipe(
+            @PathVariable String id,
+            @RequestBody NameRequest request) {
+        return ResponseEntity.ok(ApiResponse.ok("Recipe added", machineService.addRecipe(id, request)));
     }
 }

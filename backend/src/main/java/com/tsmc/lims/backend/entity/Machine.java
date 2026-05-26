@@ -6,6 +6,9 @@ import lombok.Getter;
 import lombok.Setter;
 import lombok.NoArgsConstructor;
 
+import java.util.ArrayList;
+import java.util.List;
+
 @Entity
 @Table(name = "machines")
 @Getter @Setter @NoArgsConstructor
@@ -21,6 +24,9 @@ public class Machine {
     @Column(name = "name", nullable = false)
     private String name;
 
+    @Column(name = "exp_key")
+    private String expKey;
+
     @Column(name = "capacity", nullable = false)
     private int capacity;
 
@@ -33,4 +39,12 @@ public class Machine {
 
     @Column(name = "error_code")
     private String errorCode;
+
+    // Not persisted — populated at query time from WipTask count
+    @Transient
+    private int loadedCount = 0;
+
+    // Not persisted — lab owners for notification routing
+    @Transient
+    private List<String> owners = new ArrayList<>();
 }
