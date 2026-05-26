@@ -22,7 +22,7 @@ export interface WipWafer {
 
 interface LabOperationsViewProps {
   language: 'en' | 'tw';
-  onNotify: (titleKey: string | null, fallbackTitle: string, desc: string, type: 'info' | 'success' | 'error' | 'warning') => void;
+  onNotify: (titleKey: string | null, fallbackTitle: string, desc: string, type: 'info' | 'success' | 'error' | 'warning', target?: 'owners' | 'lab') => void;
   initialWips?: WipWafer[]; // For dynamic testing and injection
 }
 
@@ -163,11 +163,11 @@ export const LabOperationsView: React.FC<LabOperationsViewProps> = ({ language, 
     if (m.state === 'ALARM') {
         const next = m.loaded.length > 0 ? 'PROCESSING' : 'IDLE';
         setMachines({ ...machines, [id]: { ...m, state: next, error: null, currentUtil: m.loaded.length > 0 ? Math.round((m.loaded.length / m.cap) * 100) : 0 } });
-        onNotify(null, 'Alarm Resolved', `${id} is back online.`, 'success');
+        onNotify(null, 'Alarm Resolved', `${id} is back online.`, 'success', 'owners');
     } else {
         // Requirement: Keep loaded wafers during alarm
         setMachines({ ...machines, [id]: { ...m, state: 'ALARM', loaded: [...m.loaded], error: 'ERR_SIMULATED_FAULT', currentUtil: 0 } });
-        onNotify(null, language === 'en' ? '🚨 System Alert' : '🚨 系統警報', `${id} ${language === 'en' ? 'reported a simulated fault.' : '觸發模擬故障。'}`, 'error');
+        onNotify(null, language === 'en' ? '🚨 System Alert' : '🚨 系統警報', `${id} ${language === 'en' ? 'reported a simulated fault.' : '觸發模擬故障。'}`, 'error', 'owners');
     }
   };
 

@@ -1,5 +1,5 @@
 // src/App.tsx
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Header, type UserProfile, type NotificationData } from './components/layout/Header';
 import { Sidebar } from './components/layout/Sidebar';
 import { FabRequestView } from './views/FabRequestView';
@@ -8,6 +8,7 @@ import { ManagerDashboardView } from './views/ManagerDashboardView';
 import { CapacityAnalyticsView } from './views/CapacityAnalyticsView';
 import { MyProfileView } from './views/MyProfileView';
 import { AuthView } from './views/AuthView';
+import { connectNotifications, sendNotification } from './api/notificationSocket';
 
 const App: React.FC = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(true);
@@ -23,6 +24,21 @@ const App: React.FC = () => {
   // User set to null (Public/Stateless mode)
   const [user, setUser] = useState<UserProfile | null>(null);
 
+  // Unique session ID to deduplicate WebSocket messages sent by this browser
+  const sessionId = useRef(crypto.randomUUID());
+
+  // Connect to WebSocket and receive notifications from other users
+  useEffect(() => {
+    const disconnect = connectNotifications(sessionId.current, (payload) => {
+      setNotifications(prev => [
+        { id: Date.now().toString(), title: payload.title, desc: payload.desc, type: payload.type },
+        ...prev,
+      ]);
+      setHasNew(true);
+    });
+    return disconnect;
+  }, []);
+
   const handleLogout = () => {
     setUser(null);
     setActiveView('view-factory-request'); // Redirect on logout
@@ -31,16 +47,26 @@ const App: React.FC = () => {
   const toggleSidebar = () => setIsSidebarOpen(prev => !prev);
   const navigateToProfile = () => setActiveView('view-my-profile');
   
-  // Function to bridge views with the header notifications
-  const addNotification = (_titleKey: string | null, fallbackTitle: string, desc: string, type: 'info' | 'success' | 'error' | 'warning' = 'info') => {
+  // Function to bridge views with the header notifications and broadcast via WebSocket
+  const addNotification = (
+    _titleKey: string | null,
+    fallbackTitle: string,
+    desc: string,
+    type: 'info' | 'success' | 'error' | 'warning' = 'info',
+    target: 'owners' | 'lab' = 'lab'
+  ) => {
+    // 1. Show locally to the sender immediately
     const newNotif: NotificationData = {
       id: Date.now().toString(),
-      title: fallbackTitle, // In a real app, titleKey would be used with i18n lookup
+      title: fallbackTitle,
       desc,
       type
     };
     setNotifications(prev => [newNotif, ...prev]);
     setHasNew(true);
+
+    // 2. Broadcast to other connected users via WebSocket
+    sendNotification({ senderId: sessionId.current, title: fallbackTitle, desc, type, target });
   };
 
   const handleMarkAsRead = () => {

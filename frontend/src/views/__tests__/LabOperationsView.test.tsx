@@ -61,7 +61,7 @@ describe('LabOperationsView - Enterprise Finite State Machine Testing Suite', ()
       // [PROCESSING -> ALARM] Simulate Error
       fireEvent.click(within(machCard).getByRole('button', { name: /Simulate Error/i }));
       expect(within(machCard).getByText('ALARM')).toBeInTheDocument();
-      expect(mockOnNotify).toHaveBeenCalledWith(null, expect.stringMatching(/System Alert/i), expect.any(String), 'error');
+      expect(mockOnNotify).toHaveBeenCalledWith(null, expect.stringMatching(/System Alert/i), expect.any(String), 'error', 'owners');
 
       // [ALARM -> MAINTENANCE] Open Modal and Toggle
       fireEvent.click(screen.getByRole('button', { name: /settings Manage Machines/i }));
