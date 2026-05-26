@@ -4,6 +4,11 @@
 -- Note: All comments and schema definitions are in English.
 -- ==========================================
 
+-- 0. Sequence Definitions
+-- ------------------------------------------
+-- Create a centralized sequence for generating sequential Employee IDs (e.g., TS-0001)
+CREATE SEQUENCE IF NOT EXISTS user_emp_id_seq START WITH 1 INCREMENT BY 1;
+
 -- 1. Table Definitions (DDL)
 -- ------------------------------------------
 
