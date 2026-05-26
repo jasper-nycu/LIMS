@@ -99,7 +99,14 @@ LIMS/
 # 複製 .env.sample 建立本地 .env 配置檔
 cp .env.sample .env
 ```
-建立完成後，請打開 `.env` 檔案，根據需求自訂安全的 `DB_PASSWORD` 與 `PGADMIN_PASSWORD`。
+
+建立完成後，請打開 `.env` 檔案設定以下機密資訊：
+
+1. **資料庫密碼：** 自訂安全的 `DB_PASSWORD` 與 `PGADMIN_PASSWORD`。
+2. **系統安全金鑰：** 為了系統安全，`JWT_SECRET` 與 `AES_MASTER_KEY` 必須是 256-bit (32 bytes) 的隨機高強度密碼。請在終端機中執行以下指令兩次，分別生成字串並填入這兩個欄位中：
+```bash
+openssl rand -base64 32
+```
 
 #### 2. 啟動資料庫容器
 確認 Docker Desktop 已在背景運行。接著使用 Docker Compose 啟動 PostgreSQL 資料庫與 pgAdmin 管理介面。
