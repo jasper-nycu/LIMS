@@ -22,7 +22,8 @@ LIMS (Laboratory Information Management System) 是一個專為高科技廠區與實驗室設計
 * **核心框架:** Java Spring Boot
 * **開發語言:** Java 25 (LTS)
 * **資料存取:** Spring Data JPA (Hibernate)
-* **安全認證:** Spring Security (JWT / ECDSA 數位簽章)
+* **安全認證:** Spring Security, JWT, TOTP
+* **資料安全:** BCrypt, ECDSA, AES-GCM
 
 ### 基礎設施與資料庫 (Infrastructure & Database)
 * **容器化:** Docker & Docker Compose
@@ -39,39 +40,31 @@ LIMS/
 ├── frontend/                 # React 前端專案目錄
 │   ├── node_modules/         # (啟動後自動產生) 存放所有下載的前端第三方套件
 │   ├── public/               # 靜態資源目錄
-│   ├── src/                  # 前端原始碼核心目錄 (React Components, Views)
-│   ├── .gitignore            # 設定 Git 版控應忽略的前端檔案 (如 node_modules)
-│   ├── eslint.config.js      # ESLint 程式碼風格與語法檢查工具的設定檔
-│   ├── index.html            # 前端應用的進入點 (Entry point) 與根 HTML
-│   ├── package-lock.json     # 鎖定當前所有依賴套件的精確版本號，確保團隊環境一致
-│   ├── package.json          # 記錄前端專案資訊、依賴套件清單與自訂的 npm 執行腳本
-│   ├── postcss.config.js     # 讀取 Tailwind CSS 
-│   ├── README.md             # 整個專案的說明文件
-│   ├── tsconfig.app.json     # 針對 React 應用程式的 TypeScript 編譯設定
-│   ├── tsconfig.json         # TypeScript 基礎設定檔 (繼承並整合其他 tsconfig)
-│   ├── tsconfig.node.json    # 針對 Node.js 環境 (如 vite.config.ts) 的 TypeScript 設定
-│   └── vite.config.ts        # Vite 打包工具的核心設定檔 (例如設定 proxy 或 plugins)
+│   └── src/                  # 前端原始碼目錄 (React Components, Views)
+│
 ├── backend/                  # Java Spring Boot 後端專案目錄
 │   ├── .mvn/                 # 存放 Maven Wrapper 的核心執行資源檔
-│   ├── src/                  # 後端原始碼目錄 (包含 main/java 與 main/resources)
-│   ├── .gitattributes        # 設定 Git 處理檔案時的行為 (例如強制換行符號格式)
-│   ├── .gitignore            # 設定 Git 版控應忽略的後端檔案 (如 target/ 編譯檔)
-│   ├── HELP.md               # Spring Boot 自動生成的專案輔助說明文件
+│   ├── src/                  # 後端原始碼目錄 (main/java, main/resources)
+│   ├── .gitattributes
+│   ├── .gitignore
 │   ├── mvnw                  # macOS/Linux 適用的 Maven Wrapper 執行腳本
-│   ├── mvnw.cmd              # Windows 適用的 Maven Wrapper 執行腳本
-│   └── pom.xml               # Maven 專案核心檔，管理 Java 依賴套件與建置生命週期
-├── database/                 # 資料庫建置與種子資料腳本目錄
-│   └── init.sql              # PostgreSQL 初始綱要 (Schema) 建表與基礎預設資料腳本
-├── docs/                     # 專案架構與技術文件存放區
-│   ├── erd/                  # 實體關聯圖存放區
-│   │   ├── lims-erd.md       # 系統實體關聯圖 (Mermaid 語法原始碼)
-│   │   └── lims-erd.png      # 系統實體關聯圖 (輸出的靜態圖片檔)
-│   └── project-preview.png   # 專案的系統預覽截圖
-├── .env                      # (本地專屬) 環境變數檔，存放真實的資料庫密碼等機密 (不會進入版控)
+│   ├── mvnw.cmd              # Windows     適用的 Maven Wrapper 執行腳本
+│   └── pom.xml               # 管理依賴套件與建置生命週期的 Maven 核心設定檔
+│
+├── database/
+│   └── init.sql              # PostgreSQL 初始 Schema 與預設資料腳本
+│
+├── docs/
+│   ├── erd/
+│   │   ├── lims-erd.md       # 系統實體關聯圖 (Mermaid 原始碼)
+│   │   └── lims-erd.png      # 系統實體關聯圖 (靜態圖片檔)
+│   └── project-preview.png   # 系統預覽截圖
+│
+├── .env                      # 本地環境變數檔，存放真實密碼與金鑰 (不會進入版控)
 ├── .env.sample               # 環境變數範本檔，提供開發者複製並填寫自己的密碼設定
-├── .gitignore                # 系統級別的 Git 忽略清單 (已設定排除所有 *.env 機密檔案)
-├── docker-compose.yml        # Docker 服務定義檔，用於一鍵啟動 PostgreSQL 與 pgAdmin 容器
-└── README.md                 # 您正在閱讀的主專案說明文件
+├── .gitignore
+├── docker-compose.yml        # 用於一鍵啟動 PostgreSQL 與 pgAdmin 容器
+└── README.md
 ```
 
 ---
@@ -114,12 +107,25 @@ openssl rand -base64 32
 # 在背景運行所有定義在 docker-compose.yml 中的容器
 docker-compose up -d
 ```
-* **參數：** `-d` 代表以背景模式 (Detached mode) 運行，這樣啟動後就不會卡住您的終端機視窗，可以繼續輸入其他指令。
-* **自動初始化：** 當 PostgreSQL 容器初次建立並啟動時，它會自動讀取我們寫好的 `database/init.sql`，完成所有資料表 (Tables) 的建立，並注入預設的六大權限角色與機台狀態等種子資料。
+* `-d` ：以背景模式 (Detached mode) 運行。這樣啟動後就不會卡住您的終端機視窗，可以繼續輸入其他指令。
+* **自動初始化：** 當 PostgreSQL 容器初次建立並啟動時，它會自動讀取 `database/init.sql`，建立所有資料表 (Tables) 並注入預設資料。
 
-#### 3. 驗證資料庫連線 (選用)
-容器啟動後，您可以開啟瀏覽器前往 **[http://localhost:5050](http://localhost:5050)**。
-使用 `.env` 中設定的 Email 與 `PGADMIN_PASSWORD` 登入 pgAdmin。新增伺服器連線（Host 填寫 `postgres`, Port 填寫 `5432`），即可視覺化檢視剛剛初始化的 `lims_db` 資料庫結構與資料。
+#### 3. 驗證資料庫連線
+容器啟動後，您可以開啟瀏覽器前往 **[http://localhost:5050](http://localhost:5050)**
+1. **登入 pgAdmin：** 使用 `.env` 中設定的 `PGADMIN_EMAIL` 與 `PGADMIN_PASSWORD` 登入。
+2. **新增伺服器連線：** 在左側選單右鍵點擊 `Servers` -> `Register` -> `Server...`。
+   * **General 頁籤：** Name 隨意填寫（例如：`LIMS-DB`）
+   * **Connection 頁籤：** * **Host name/address** 填寫：`postgres` (此為 Docker 內部網路的服務名稱)
+     * **Port** 填寫：`5432`
+     * **Maintenance database** 填寫：`lims_db` (對應 `.env` 的 `DB_NAME`)
+     * **Username** 填寫：`lims_admin` (對應 `.env` 的 `DB_USER`)
+     * **Password** 填寫：您設定的 `DB_PASSWORD`
+3. 儲存後，展開 `Servers` -> `LIMS-DB` -> `Databases` -> `lims_db` -> `Schemas` -> `public` -> `Tables`，即可檢視所有資料表。
+4. **快速查看資料：** 在目標資料表（例如：users 或其他表）名稱上按滑鼠右鍵，將滑鼠游標移到 View/Edit Data（查看/編輯資料），在展開的選單中，點選 All Rows。
+5. **撰寫 SQL 指令：** 如果你想做更複雜的篩選（例如只想看某一天的資料），可以自己寫點簡單的指令：
+    1. 滑鼠左鍵點一下選中你的資料表。
+    2. 在 pgAdmin 最上方的那排工具列，點擊一個像「資料庫加上播放鍵」的圖示，它叫 Query Tool（查詢工具）。
+    3. 右側會彈出一個可以打字的空白視窗，即可在裡面輸入指令，並點擊該視窗上方的按鈕執行，下方的 Data Output 就會秀出內容了。
 
 ---
 
@@ -133,16 +139,12 @@ docker-compose up -d
 cd backend
 
 # 使用 Maven Wrapper 啟動應用程式
-# macOS / Linux 使用者:
-./mvnw spring-boot:run
-
-# Windows 使用者:
-mvnw spring-boot:run
+./mvnw spring-boot:run  # macOS / Linux
+.\mvnw spring-boot:run  # Windows
 ```
 
-* **背景知識：** 什麼是 `mvnw` (Maven Wrapper)？
-它是一個腳本，能確保所有團隊成員都使用完全相同版本的 Maven 建置工具。當您執行該腳本時，系統會自動下載專案所需的 Java 依賴套件並進行編譯，您無須在電腦上預先安裝 Maven。
-* 待終端機停止滾動，並顯示類似 `Started Application in X.XXX seconds` 的訊息後，即代表後端 API 伺服器已成功運行於 **[http://localhost:8080](http://localhost:8080)**。
+* `mvnw` **(Maven Wrapper)** 是一個腳本，能確保所有團隊成員都使用完全相同版本的 Maven 建置工具。當您執行該腳本時，系統會自動下載專案所需的 Java 依賴套件並進行編譯，您無須在電腦上預先安裝 Maven。
+* 待終端機停止滾動，並顯示 `Started BackendApplication in X.XXX seconds` ，即代表後端 API 伺服器已成功運行於 **[http://localhost:8080](http://localhost:8080)**
 
 ---
 
@@ -165,8 +167,8 @@ npm install
 # 啟動具備熱更新 (Hot-Reload) 功能的開發伺服器
 npm run dev
 ```
-* **背景知識：** `npm run dev` 是一個捷徑指令。它會去尋找 `package.json` 的 `"scripts"` 區塊中定義的 `"dev"` 命令並執行它。
-* 伺服器啟動後，終端機會顯示一個本機網址（通常預設為 **[http://localhost:5173](http://localhost:5173)**）。請在瀏覽器中開啟該網址，即可看見並操作 LIMS 系統介面！
+* `npm run dev` 是一個捷徑指令，它會去尋找 `package.json` 的 `"scripts"` 區塊中定義的 `"dev"` 命令並執行它。
+* 伺服器啟動後，終端機會顯示一個本機網址（預設為 **[http://localhost:5173](http://localhost:5173)**）。請在瀏覽器中開啟該網址，即可看見並操作 LIMS 系統介面！
 
 ---
 
