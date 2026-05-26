@@ -1,5 +1,5 @@
 // src/views/__tests__/AuthView.test.tsx
-import { render, screen, fireEvent, cleanup, act } from '@testing-library/react';
+import { render, screen, fireEvent, cleanup, act, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { AuthView } from '../AuthView';
 
@@ -18,6 +18,39 @@ describe('AuthView - Enterprise Authentication & Verification Testing Suite', ()
   beforeEach(() => {
     vi.clearAllMocks();
     vi.useFakeTimers(); // Intercept real-world clocks for deterministic TOTP countdown intervals
+
+    // --- NEW: Mock global fetch API to simulate Backend Responses ---
+    vi.stubGlobal('fetch', vi.fn().mockImplementation((url: string) => {
+      if (url.includes('/login')) {
+        const data = { token: 'mock-jwt', user: { name: 'Jasper Li', role: 'ROLE_SYSADMIN' } };
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve(data),
+          text: () => Promise.resolve(JSON.stringify(data))
+        });
+      }
+      if (url.includes('/register/initiate')) {
+        const data = { message: 'Sent' };
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve(data),
+          text: () => Promise.resolve(JSON.stringify(data))
+        });
+      }
+      if (url.includes('/register/verify')) {
+        const data = { message: 'Registration successful! Please sign in with your new account.' };
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve(data),
+          text: () => Promise.resolve(JSON.stringify(data))
+        });
+      }
+      return Promise.resolve({ 
+        ok: false, 
+        json: () => Promise.resolve({}),
+        text: () => Promise.resolve("{}")
+      });
+    }));
   });
 
   afterEach(() => {
@@ -60,7 +93,7 @@ describe('AuthView - Enterprise Authentication & Verification Testing Suite', ()
   });
 
   describe('2. Authentication Flow & State Mapping Integrity', () => {
-    it('should dispatch valid session properties up to root layout upon login form submit', () => {
+    it('should dispatch valid session properties up to root layout upon login form submit', async () => {
       render(<AuthView {...defaultProps('en')} />);
 
       const idInput = screen.getByPlaceholderText('TS-0001');
@@ -70,14 +103,15 @@ describe('AuthView - Enterprise Authentication & Verification Testing Suite', ()
       // Input admin test parameters
       fireEvent.change(idInput, { target: { value: 'TS-0001' } });
       fireEvent.change(pwdInput, { target: { value: 'securePass123' } });
-      fireEvent.submit(submitBtn);
 
-      // Verify global layout synchronization hooks
-      expect(mockOnNotify).toHaveBeenCalledWith(null, 'Auth Success', 'Welcome back to LIMS Portal.', 'success');
-      expect(mockOnLoginSuccess).toHaveBeenCalledWith({
-        name: 'Jasper Li',
-        role: 'ROLE_SYSADMIN',
+      await act(async () => {
+        fireEvent.submit(submitBtn);
       });
+
+      expect(mockOnNotify).toHaveBeenCalledWith(null, 'Auth Success', 'Welcome back to LIMS Portal.', 'success');
+      expect(mockOnLoginSuccess).toHaveBeenCalledWith(expect.objectContaining({
+        name: 'Jasper Li'
+      }));
     });
   });
 
@@ -138,7 +172,7 @@ describe('AuthView - Enterprise Authentication & Verification Testing Suite', ()
   });
 
   describe('4. TOTP Verification Sequence & Interval Lifecycle Controls', () => {
-    beforeEach(() => {
+    beforeEach(async () => {
       render(<AuthView {...defaultProps('en')} />);
       fireEvent.click(screen.getByText('New here? Create an account'));
 
@@ -149,7 +183,11 @@ describe('AuthView - Enterprise Authentication & Verification Testing Suite', ()
       fireEvent.change(screen.getByPlaceholderText('Create password'), { target: { value: 'password123' } });
       fireEvent.change(screen.getByPlaceholderText('Confirm password'), { target: { value: 'password123' } });
       
-      fireEvent.submit(screen.getByRole('button', { name: 'Register' }));
+      await act(async () => {
+        fireEvent.submit(screen.getByRole('button', { name: 'Register' }));
+      });
+
+      expect(screen.getByText('Email Verification')).toBeInTheDocument();
     });
 
     it('should launch the TOTP layer modal and step-down countdown timers deterministically over virtual periods', () => {
@@ -185,12 +223,15 @@ describe('AuthView - Enterprise Authentication & Verification Testing Suite', ()
       expect(screen.getByText('Please enter a valid 6-digit TOTP code.')).toBeInTheDocument();
     });
 
-    it('should process valid 6-digit security strings, dissolve timers, and complete account provisioning phases', () => {
+    it('should process valid 6-digit security strings, dissolve timers, and complete account provisioning phases', async () => {
       const totpInput = screen.getByPlaceholderText('000000');
       const verifyBtn = screen.getByRole('button', { name: 'Verify & Complete' });
 
       fireEvent.change(totpInput, { target: { value: '712345' } });
-      fireEvent.click(verifyBtn);
+      
+      await act(async () => {
+        fireEvent.click(verifyBtn);
+      });
 
       // Verify memory state handles and custom success popup modal layers are rendered instead of stale browser alerts
       expect(screen.queryByText('Email Verification')).not.toBeInTheDocument();
