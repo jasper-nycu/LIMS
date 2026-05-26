@@ -98,7 +98,9 @@ export const ManagerDashboardView: React.FC<ManagerDashboardProps> = ({ language
       const finish = () => {
         setRequests(prev => prev.filter(r => r.id !== id));
         setRemovingId(null);
-        onNotify(null, ui.notifApprove, `${id} has been moved to Lab WIP queue.`, 'success');
+        if (!user?.employeeId) {
+          onNotify(null, ui.notifApprove, `${id} has been moved to Lab WIP queue.`, 'success');
+        }
         onRefreshNotifications?.();
       };
 
@@ -126,7 +128,9 @@ export const ManagerDashboardView: React.FC<ManagerDashboardProps> = ({ language
       const finish = () => {
         setRequests(prev => prev.filter(r => r.id !== targetId));
         setRemovingId(null);
-        onNotify(null, ui.notifReject, `${targetId} rejected: ${rejectReason}`, 'error');
+        if (!user?.employeeId) {
+          onNotify(null, ui.notifReject, `${targetId} rejected: ${rejectReason}`, 'error');
+        }
         setRejReason('');
         onRefreshNotifications?.();
       };
