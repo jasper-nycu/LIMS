@@ -1,8 +1,7 @@
-package com.tsmc.lims.backend.api;
+package com.tsmc.lims.backend.machine.controller;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -13,14 +12,13 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 @RestController
-@RequestMapping("/api")
-@CrossOrigin(origins = "*")
+@RequestMapping("/api/v1/machines")
 public class MachineController {
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
 
-    @GetMapping("/machines")
+    @GetMapping
     public List<Map<String, Object>> getMachines() {
         final String sql = "SELECT machine_id, name, capacity, state, current_utilization, error_code FROM machines";
         List<Map<String, Object>> list = jdbcTemplate.queryForList(sql);

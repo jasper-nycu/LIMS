@@ -1,4 +1,4 @@
-package com.tsmc.lims.backend.api;
+package com.tsmc.lims.backend.profile.controller;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;

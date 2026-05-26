@@ -1,4 +1,4 @@
-package com.tsmc.lims.backend.api;
+package com.tsmc.lims.backend.machine.controller;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.JdbcTemplate;
