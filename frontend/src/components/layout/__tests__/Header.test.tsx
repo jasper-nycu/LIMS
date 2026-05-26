@@ -8,10 +8,11 @@ describe('Header - Enterprise Global Navigation Testing Suite', () => {
     onToggleMenu: vi.fn(),
     language: 'en' as const,
     onLanguageChange: vi.fn(),
-    user: null, // Stateless mode
+    user: null,
     onProfileClick: vi.fn(),
     notifications: [],
     onDeleteNotification: vi.fn(),
+    onClearAllNotifications: vi.fn(),
     hasNew: false,
     onMarkAsRead: vi.fn(),
   };
@@ -23,18 +24,15 @@ describe('Header - Enterprise Global Navigation Testing Suite', () => {
   });
 
   it('displays "Username" and "Public" in stateless mode', () => {
-  render(<Header {...defaultProps} />);
-  
-  // Using regex /text/i makes the search case-insensitive
-  // This is better because CSS 'uppercase' doesn't change the underlying DOM text
-  expect(screen.getByText(/Username/i)).toBeInTheDocument();
-  expect(screen.getByText(/Public/i)).toBeInTheDocument();
-});
+    render(<Header {...defaultProps} />);
+    expect(screen.getByText(/Username/i)).toBeInTheDocument();
+    expect(screen.getByText(/Public/i)).toBeInTheDocument();
+  });
 
   it('calls onLanguageChange when language buttons are clicked', () => {
     render(<Header {...defaultProps} />);
-    const chineseBtn = screen.getByText('中文');
-    fireEvent.click(chineseBtn);
+    const twBtn = screen.getByText('中文');
+    fireEvent.click(twBtn);
     expect(defaultProps.onLanguageChange).toHaveBeenCalledWith('tw');
   });
 
@@ -45,9 +43,7 @@ describe('Header - Enterprise Global Navigation Testing Suite', () => {
       notifications: [{ id: '1', title: 'Test', desc: 'Test', type: 'info' as const }],
     };
     const { container } = render(<Header {...propsWithNotifs} />);
-    // Check for the presence of the red dot (span with bg-red-500)
-    const badge = container.querySelector('.bg-red-500');
-    expect(badge).toBeInTheDocument();
+    expect(container.querySelector('.bg-red-500')).toBeInTheDocument();
   });
 
   it('triggers onMarkAsRead when notification panel is opened', () => {
@@ -55,5 +51,17 @@ describe('Header - Enterprise Global Navigation Testing Suite', () => {
     const bellBtn = screen.getByText('notifications');
     fireEvent.click(bellBtn);
     expect(defaultProps.onMarkAsRead).toHaveBeenCalled();
+  });
+
+  it('renders the Base64 avatar when user profile has one', () => {
+    const avatarBase64 = 'data:image/png;base64,aGVsbG8=';
+    const { container } = render(
+      <Header
+        {...defaultProps}
+        user={{ name: 'John Doe', role: 'ROLE_PUBLIC', avatarBase64 }}
+      />
+    );
+
+    expect(container.querySelector('img')).toHaveAttribute('src', avatarBase64);
   });
 });
