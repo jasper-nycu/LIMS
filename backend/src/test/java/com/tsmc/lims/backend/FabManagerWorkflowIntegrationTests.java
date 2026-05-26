@@ -19,15 +19,18 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-@SpringBootTest(properties = {
-        "spring.datasource.url=jdbc:h2:mem:lims_workflow;MODE=PostgreSQL;DB_CLOSE_DELAY=-1",
-        "spring.datasource.driver-class-name=org.h2.Driver",
-        "spring.jpa.hibernate.ddl-auto=create-drop"
-})
+@SpringBootTest
 class FabManagerWorkflowIntegrationTests {
+
+    @DynamicPropertySource
+    static void postgresProperties(DynamicPropertyRegistry registry) {
+        PostgresTestSupport.configure(registry, "lims_test_workflow");
+    }
 
     @Autowired
     private FabManagerService service;
@@ -106,6 +109,12 @@ class FabManagerWorkflowIntegrationTests {
         assertThat(service.listPendingWips()).hasSize(4);
         assertThat(service.listPendingRequests()).isEmpty();
         assertThat(service.listNotifications("TS-1001")).hasSize(2);
+        assertThat(service.listNotifications("TS-0001"))
+                .extracting("title")
+                .doesNotContain("Request Approved");
+        assertThat(service.listNotifications("TS-9001"))
+                .extracting("title")
+                .doesNotContain("Request Approved");
 
         service.markNotificationsRead("TS-1001");
         assertThat(service.listNotifications("TS-1001").getFirst().read()).isTrue();
@@ -131,6 +140,31 @@ class FabManagerWorkflowIntegrationTests {
             assertThat(request.getRejectReason()).isEqualTo("Capacity unavailable");
         });
         assertThat(wipTaskRepository.findAll()).isEmpty();
+        assertThat(service.listNotifications("TS-1001"))
+                .extracting("title")
+                .containsExactly("Request Rejected", "Request Submitted");
+        assertThat(service.listNotifications("TS-0001"))
+                .extracting("title")
+                .doesNotContain("Request Rejected");
+    }
+
+    @Test
+    void rejectingSystemAdminRequestDoesNotNotifyFabUsers() {
+        FabRequestSummary created = service.createRequest(new CreateFabRequest(
+                "TS-0001",
+                "LAB_RA",
+                List.of("exp_bake"),
+                List.of("W-3333"),
+                "NORMAL",
+                "Admin submitted request."
+        ));
+
+        service.rejectRequest(created.id(), "TS-9001", "Capacity unavailable");
+
+        assertThat(service.listNotifications("TS-0001"))
+                .extracting("title")
+                .containsExactly("Request Rejected", "Request Submitted");
+        assertThat(service.listNotifications("TS-1001")).isEmpty();
     }
 
     @Test

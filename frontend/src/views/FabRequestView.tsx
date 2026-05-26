@@ -144,6 +144,11 @@ export const FabRequestView: React.FC<{
     setWaferInput('');
   };
 
+  const handleLabChange = (labId: keyof typeof labs) => {
+    setSelectedLab(labId);
+    setSelectedExps([]);
+  };
+
   const toggleExp = (key: string) => {
     setSelectedExps(prev => prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]);
   };
@@ -182,8 +187,13 @@ export const FabRequestView: React.FC<{
         setWafers([]); setSelectedExps([]); setRemarks('');
         onRefreshNotifications?.();
         return;
-      } catch {
-        setModal({ isOpen: true, title: 'Submission Failed', message: 'Unable to submit request to backend API.', type: 'error' });
+      } catch (error) {
+        setModal({
+          isOpen: true,
+          title: 'Submission Failed',
+          message: error instanceof Error ? error.message : 'Unable to submit request to backend API.',
+          type: 'error'
+        });
         return;
       }
     }
@@ -239,7 +249,7 @@ export const FabRequestView: React.FC<{
                 id="lab-select"
                 className="w-full rounded-xl border-slate-200 text-sm py-3 px-4 font-semibold text-slate-700 focus:ring-corporate-blue cursor-pointer"
                 value={selectedLab}
-                onChange={(e) => setSelectedLab(e.target.value as any)}
+                onChange={(e) => handleLabChange(e.target.value as keyof typeof labs)}
               >
                 {Object.entries(labs).map(([key, label]) => (
                   <option key={key} value={key}>{language === 'en' ? label.en : label.tw}</option>

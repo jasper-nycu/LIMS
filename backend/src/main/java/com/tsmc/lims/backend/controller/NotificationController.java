@@ -32,7 +32,7 @@ public class NotificationController {
     }
 
     @DeleteMapping("/{notificationId}")
-    public void deleteNotification(@RequestParam String employeeId, @PathVariable Long notificationId) {
+    public void deleteNotification(@RequestParam String employeeId, @PathVariable Integer notificationId) {
         service.deleteNotification(employeeId, notificationId);
     }
 

@@ -18,7 +18,7 @@ public class WaferEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "wafer_internal_id")
-    private Long waferInternalId;
+    private Integer waferInternalId;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "request_id")
@@ -35,7 +35,7 @@ public class WaferEntity {
         this.waferCode = waferCode;
     }
 
-    public Long getWaferInternalId() {
+    public Integer getWaferInternalId() {
         return waferInternalId;
     }
 

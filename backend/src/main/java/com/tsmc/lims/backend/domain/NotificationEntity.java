@@ -19,7 +19,7 @@ public class NotificationEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "notif_id")
-    private Long notifId;
+    private Integer notifId;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "user_id")
@@ -57,7 +57,7 @@ public class NotificationEntity {
         }
     }
 
-    public Long getNotifId() {
+    public Integer getNotifId() {
         return notifId;
     }
 

@@ -19,7 +19,7 @@ public class WipTaskEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "task_id")
-    private Long taskId;
+    private Integer taskId;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "request_id")
@@ -55,7 +55,7 @@ public class WipTaskEntity {
         }
     }
 
-    public Long getTaskId() {
+    public Integer getTaskId() {
         return taskId;
     }
 

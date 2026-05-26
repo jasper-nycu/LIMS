@@ -153,8 +153,8 @@ public class FabManagerService {
             }
         }
 
-        notifyRoles(
-                Set.of("ROLE_SYSADMIN", "ROLE_FAB_USER", "ROLE_LAB_MANAGER"),
+        notifyRequester(
+                request,
                 "Request Approved",
                 request.getRequestId() + " approved and moved to Lab WIP queue.",
                 "success"
@@ -173,8 +173,8 @@ public class FabManagerService {
         UserEntity approver = userRepository.findById(defaultIfBlank(approverId, "TS-9001"))
                 .orElseThrow(() -> notFound("Approver not found."));
         request.reject(approver, rejectReason.trim());
-        notifyRoles(
-                Set.of("ROLE_SYSADMIN", "ROLE_FAB_USER", "ROLE_LAB_MANAGER"),
+        notifyRequester(
+                request,
                 "Request Rejected",
                 request.getRequestId() + " rejected: " + rejectReason.trim(),
                 "error"
@@ -214,7 +214,7 @@ public class FabManagerService {
     }
 
     @Transactional
-    public void deleteNotification(String employeeId, Long notificationId) {
+    public void deleteNotification(String employeeId, Integer notificationId) {
         required(employeeId, "employeeId");
         if (notificationId == null) {
             throw badRequest("notificationId is required.");
@@ -350,6 +350,13 @@ public class FabManagerService {
         userRepository.findByRoleEnumInAndActiveTrue(roleEnums).stream()
                 .map(user -> new NotificationEntity(user, title, message, type))
                 .forEach(notificationRepository::save);
+    }
+
+    private void notifyRequester(FabRequestEntity request, String title, String message, String type) {
+        UserEntity requester = request.getRequester();
+        if (requester != null) {
+            notificationRepository.save(new NotificationEntity(requester, title, message, type));
+        }
     }
 
     private void notifyRolesExcept(Set<String> roleEnums, String excludedEmployeeId, String title, String message, String type) {

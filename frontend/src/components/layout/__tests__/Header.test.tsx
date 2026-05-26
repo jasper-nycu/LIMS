@@ -12,6 +12,7 @@ describe('Header - Enterprise Global Navigation Testing Suite', () => {
     onProfileClick: vi.fn(),
     notifications: [],
     onDeleteNotification: vi.fn(),
+    onClearAllNotifications: vi.fn(),
     hasNew: false,
     onMarkAsRead: vi.fn(),
   };
