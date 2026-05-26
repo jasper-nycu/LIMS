@@ -66,11 +66,14 @@ export const CapacityAnalyticsView: React.FC<CapacityAnalyticsViewProps> = ({
       time_3d: 'Last 3 Days',
       time_1w: 'Last 1 Week',
       operationTitle: 'Machine Operation Status',
+      operationDesc: 'Chart shows machineoperation status across the selected interval.',
       activeRuntime: 'Active Runtime',
       statusProcessing: 'PROCESSING',
       statusIdle: 'IDLE',
       statusMaintenance: 'MAINTENANCE',
-      statusAlarm: 'ALARM'
+      statusAlarm: 'ALARM',
+      pieAllMachines: 'All machines (machine-hours)',
+      machineLabel: 'Machine'
     },
     tw: {
       title: '機台利用率時序圖',
@@ -87,12 +90,15 @@ export const CapacityAnalyticsView: React.FC<CapacityAnalyticsViewProps> = ({
       time_1d: '近 1 天',
       time_3d: '近 3 天',
       time_1w: '近 1 週',
-      operationTitle: '機台營運狀態',
-      activeRuntime: '活動運轉時間',
+      operationTitle: '機台運作狀態',
+      operationDesc: '圖表顯示所選時間段內的機台運作狀態。',
+      activeRuntime: '運轉時間',
       statusProcessing: '執行中',
       statusIdle: '閒置中',
       statusMaintenance: '維護中',
-      statusAlarm: '異常'
+      statusAlarm: '異常',
+      pieAllMachines: '所有機台（機台工時）',
+      machineLabel: '機台'
     }
   };
 
@@ -462,7 +468,7 @@ export const CapacityAnalyticsView: React.FC<CapacityAnalyticsViewProps> = ({
         <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4 mb-4">
           <div>
             <h3 className="text-base font-bold text-slate-900">{ui.operationTitle}</h3>
-            <p className="text-xs text-slate-500 mt-1">Chart shows operation status across the selected interval.</p>
+            <p className="text-xs text-slate-500 mt-1">{ui.operationDesc}</p>
           </div>
           <div className="flex flex-col sm:flex-row sm:items-center gap-3 text-xs text-slate-500">
             <div className="inline-flex items-center gap-2"><span className="w-3 h-3 rounded-sm bg-emerald-500"></span>{ui.statusProcessing}</div>
@@ -470,7 +476,7 @@ export const CapacityAnalyticsView: React.FC<CapacityAnalyticsViewProps> = ({
             <div className="inline-flex items-center gap-2"><span className="w-3 h-3 rounded-sm bg-blue-500"></span>{ui.statusMaintenance}</div>
             <div className="inline-flex items-center gap-2"><span className="w-3 h-3 rounded-sm bg-red-500"></span>{ui.statusAlarm}</div>
             <div className="inline-flex items-center gap-2">
-              <label htmlFor="statusMachineSelect" className="font-medium text-slate-700">Machine</label>
+              <label htmlFor="statusMachineSelect" className="font-medium text-slate-700">{ui.machineLabel}</label>
               <select
                 id="statusMachineSelect"
                 value={selectedMachineId}
@@ -487,7 +493,7 @@ export const CapacityAnalyticsView: React.FC<CapacityAnalyticsViewProps> = ({
 
         <div className="grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-6">
           <div className="h-64 rounded-2xl bg-white p-3 border border-slate-200 shadow-sm">
-            <div className="text-sm font-semibold text-slate-800 mb-3">All machines</div>
+            <div className="text-sm font-semibold text-slate-800 mb-3"> {ui.pieAllMachines}</div>
             <canvas ref={statusPieRef}></canvas>
           </div>
 
