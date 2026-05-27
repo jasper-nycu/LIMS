@@ -1,19 +1,20 @@
 package com.tsmc.lims.backend;
 
-import com.tsmc.lims.backend.domain.ExperimentEntity;
-import com.tsmc.lims.backend.domain.LaboratoryEntity;
-import com.tsmc.lims.backend.domain.UserEntity;
-import com.tsmc.lims.backend.dto.CreateFabRequest;
-import com.tsmc.lims.backend.dto.FabRequestSummary;
-import com.tsmc.lims.backend.dto.ManagerRequestSummary;
-import com.tsmc.lims.backend.repository.ExperimentRepository;
-import com.tsmc.lims.backend.repository.FabRequestRepository;
-import com.tsmc.lims.backend.repository.LaboratoryRepository;
-import com.tsmc.lims.backend.repository.NotificationRepository;
-import com.tsmc.lims.backend.repository.UserRepository;
-import com.tsmc.lims.backend.repository.WaferRepository;
-import com.tsmc.lims.backend.repository.WipTaskRepository;
-import com.tsmc.lims.backend.service.FabManagerService;
+import com.tsmc.lims.backend.fabuser.domain.ExperimentEntity;
+import com.tsmc.lims.backend.fabuser.domain.LaboratoryEntity;
+import com.tsmc.lims.backend.fabuser.domain.UserEntity;
+import com.tsmc.lims.backend.fabuser.dto.CreateFabRequest;
+import com.tsmc.lims.backend.fabuser.dto.FabRequestSummary;
+import com.tsmc.lims.backend.fabuser.repository.ExperimentRepository;
+import com.tsmc.lims.backend.fabuser.repository.FabRequestRepository;
+import com.tsmc.lims.backend.fabuser.repository.LaboratoryRepository;
+import com.tsmc.lims.backend.fabuser.repository.UserRepository;
+import com.tsmc.lims.backend.fabuser.repository.WaferRepository;
+import com.tsmc.lims.backend.fabuser.service.FabManagerService;
+import com.tsmc.lims.backend.labmanager.dto.LabWipSummary;
+import com.tsmc.lims.backend.labmanager.dto.ManagerRequestSummary;
+import com.tsmc.lims.backend.labmanager.repository.NotificationRepository;
+import com.tsmc.lims.backend.labmanager.repository.WipTaskRepository;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -185,5 +186,46 @@ class FabManagerWorkflowIntegrationTests {
                 .extracting("title")
                 .isEqualTo("Request Submitted");
         assertThat(service.listNotifications("TS-9001")).hasSize(1);
+    }
+
+    @Test
+    void labWipQueueIsSortedByPriorityThenCreationTime() {
+        FabRequestSummary normal = createSingleWaferRequest("W-7001", "NORMAL");
+        service.approveRequest(normal.id(), "TS-9001");
+
+        FabRequestSummary firstCritical = createSingleWaferRequest("W-7002", "CRITICAL");
+        service.approveRequest(firstCritical.id(), "TS-9001");
+
+        FabRequestSummary urgent = createSingleWaferRequest("W-7003", "URGENT");
+        service.approveRequest(urgent.id(), "TS-9001");
+
+        FabRequestSummary secondCritical = createSingleWaferRequest("W-7004", "CRITICAL");
+        service.approveRequest(secondCritical.id(), "TS-9001");
+
+        assertThat(service.listPendingWips())
+                .extracting(LabWipSummary::priority)
+                .containsExactly("CRITICAL", "CRITICAL", "URGENT", "NORMAL");
+        assertThat(service.listPendingWips())
+                .extracting(LabWipSummary::id)
+                .satisfiesExactly(
+                        id -> assertThat(id).startsWith("W-7002-"),
+                        id -> assertThat(id).startsWith("W-7004-"),
+                        id -> assertThat(id).startsWith("W-7003-"),
+                        id -> assertThat(id).startsWith("W-7001-")
+                );
+        assertThat(service.listPendingWips())
+                .extracting(LabWipSummary::waferId)
+                .containsExactly("W-7002", "W-7004", "W-7003", "W-7001");
+    }
+
+    private FabRequestSummary createSingleWaferRequest(String waferId, String priority) {
+        return service.createRequest(new CreateFabRequest(
+                "TS-1001",
+                "LAB_RA",
+                List.of("exp_bake"),
+                List.of(waferId),
+                priority,
+                priority + " sorting test."
+        ));
     }
 }

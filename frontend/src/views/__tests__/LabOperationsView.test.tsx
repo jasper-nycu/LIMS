@@ -43,6 +43,37 @@ describe('LabOperationsView - Enterprise Finite State Machine Testing Suite', ()
   const getWipTable = () => screen.getByText(/Pending Wafers/i).closest('div.bg-white') as HTMLElement;
 
   // --- Machine Management (FSM) ---
+  describe('WIP Sorting', () => {
+    it('shows only the wafer code even when the backend row id is a unique task key', () => {
+      render(<LabOperationsView {...defaultProps([
+        { id: 'W-1111-exp_sem-61', waferId: 'W-1111', expKey: 'exp_sem', priority: 'NORMAL' },
+      ])} />);
+
+      expect(within(getWipTable()).getByText('W-1111')).toBeInTheDocument();
+      expect(within(getWipTable()).queryByText('W-1111-exp_sem-61')).not.toBeInTheDocument();
+    });
+
+    it('orders pending wafers by priority while preserving arrival order within the same priority', () => {
+      const wips: WipWafer[] = [
+        { id: 'W-8101', expKey: 'exp_bake', priority: 'NORMAL' },
+        { id: 'W-8102', expKey: 'exp_bake', priority: 'CRITICAL' },
+        { id: 'W-8103', expKey: 'exp_bake', priority: 'URGENT' },
+        { id: 'W-8104', expKey: 'exp_bake', priority: 'CRITICAL' },
+      ];
+
+      render(<LabOperationsView {...defaultProps(wips)} />);
+
+      const bodyRows = within(getWipTable()).getAllByRole('row').slice(1);
+      expect(bodyRows.map(row => row.textContent)).toEqual([
+        expect.stringContaining('W-8102'),
+        expect.stringContaining('W-8104'),
+        expect.stringContaining('W-8103'),
+        expect.stringContaining('W-8101'),
+      ]);
+    });
+  });
+
+  // --- Machine Management (FSM) ---
   describe('Machine Management (FSM)', () => {
     it('1 & 2. should follow full Machine FSM path with notifications', () => {
       const wips = generateDynamicWafers(1, 'exp_bake');

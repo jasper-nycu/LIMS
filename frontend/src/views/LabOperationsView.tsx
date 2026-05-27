@@ -17,9 +17,24 @@ interface MachineState {
 
 export interface WipWafer {
   id: string;
+  waferId?: string;
   expKey: string;
   priority: 'NORMAL' | 'URGENT' | 'CRITICAL';
 }
+
+const priorityRank: Record<WipWafer['priority'], number> = {
+  CRITICAL: 0,
+  URGENT: 1,
+  NORMAL: 2,
+};
+
+const sortWipsForDisplay = (items: WipWafer[]) =>
+  items
+    .map((item, index) => ({ item, index }))
+    .sort((a, b) => priorityRank[a.item.priority] - priorityRank[b.item.priority] || a.index - b.index)
+    .map(({ item }) => item);
+
+const displayWaferId = (wip: WipWafer) => wip.waferId ?? wip.id.match(/^W-\d{4}/)?.[0] ?? wip.id;
 
 interface LabOperationsViewProps {
   language: 'en' | 'tw';
@@ -80,6 +95,7 @@ export const LabOperationsView: React.FC<LabOperationsViewProps> = ({ language, 
 
   // --- States ---
   const [wips, setWips] = useState<WipWafer[]>(initialWips);
+  const sortedWips = sortWipsForDisplay(wips);
   const [selectedWipIds, setSelectedWips] = useState<Set<string>>(new Set());
   const [showMachModal, setShowMachModal] = useState(false);
   const [showRecModal, setShowRecModal] = useState(false);
@@ -115,8 +131,8 @@ export const LabOperationsView: React.FC<LabOperationsViewProps> = ({ language, 
 
   useEffect(() => {
     if (initialWips.length > 0) return;
-    apiGet<WipWafer[]>('/api/lab/wips')
-      .then(setWips)
+    apiGet<WipWafer[]>('/api/v1/feat/lab/wips')
+      .then(items => setWips(sortWipsForDisplay(items)))
       .catch(() => undefined);
   }, [initialWips.length]);
 
@@ -242,7 +258,7 @@ export const LabOperationsView: React.FC<LabOperationsViewProps> = ({ language, 
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
-                {wips.length > 0 ? wips.map(w => (
+                {sortedWips.length > 0 ? sortedWips.map(w => (
                   <tr key={w.id} className={`hover:bg-slate-50 transition-colors ${selectedWipIds.has(w.id) ? 'bg-blue-50/40' : ''}`}>
                     <td className="px-6 py-4">
                         <input 
@@ -256,7 +272,7 @@ export const LabOperationsView: React.FC<LabOperationsViewProps> = ({ language, 
                             }} 
                         />
                     </td>
-                    <td className="px-6 py-4 font-mono font-bold text-slate-700">{w.id}</td>
+                    <td className="px-6 py-4 font-mono font-bold text-slate-700">{displayWaferId(w)}</td>
                     <td className="px-6 py-4 text-xs text-slate-500">{ui[w.expKey as keyof typeof ui]}</td>
                     <td className="px-6 py-4">
                       <span className={`px-2 py-1 rounded text-[10px] font-bold ${
