@@ -189,6 +189,21 @@ class FabManagerWorkflowIntegrationTests {
     }
 
     @Test
+    void managerPendingQueueIsSortedByPriorityThenCreationTime() {
+        FabRequestSummary normal = createSingleWaferRequest("W-7101", "NORMAL");
+        FabRequestSummary firstCritical = createSingleWaferRequest("W-7102", "CRITICAL");
+        FabRequestSummary urgent = createSingleWaferRequest("W-7103", "URGENT");
+        FabRequestSummary secondCritical = createSingleWaferRequest("W-7104", "CRITICAL");
+
+        assertThat(service.listPendingRequests())
+                .extracting(ManagerRequestSummary::priority)
+                .containsExactly("CRITICAL", "CRITICAL", "URGENT", "NORMAL");
+        assertThat(service.listPendingRequests())
+                .extracting(ManagerRequestSummary::id)
+                .containsExactly(firstCritical.id(), secondCritical.id(), urgent.id(), normal.id());
+    }
+
+    @Test
     void labWipQueueIsSortedByPriorityThenCreationTime() {
         FabRequestSummary normal = createSingleWaferRequest("W-7001", "NORMAL");
         service.approveRequest(normal.id(), "TS-9001");

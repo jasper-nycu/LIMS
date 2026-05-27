@@ -15,6 +15,22 @@ export interface ManagerRequest {
   submitTime: string;
 }
 
+const priorityRank: Record<ManagerRequest['priority'], number> = {
+  CRITICAL: 0,
+  URGENT: 1,
+  NORMAL: 2,
+};
+
+const sortManagerQueue = (requests: ManagerRequest[]) =>
+  requests
+    .map((request, index) => ({ request, index }))
+    .sort((a, b) =>
+      priorityRank[a.request.priority] - priorityRank[b.request.priority]
+      || a.request.submitTime.localeCompare(b.request.submitTime)
+      || a.index - b.index
+    )
+    .map(({ request }) => request);
+
 interface ManagerDashboardProps {
   language: 'en' | 'tw';
   onNotify: (titleKey: string | null, fallbackTitle: string, desc: string, type: 'info' | 'success' | 'error' | 'warning') => void;
@@ -74,7 +90,7 @@ export const ManagerDashboardView: React.FC<ManagerDashboardProps> = ({ language
   const ui = i18n[language];
 
   // --- States ---
-  const [pendingRequests, setRequests] = useState<ManagerRequest[]>(initialRequests);
+  const [pendingRequests, setRequests] = useState<ManagerRequest[]>(sortManagerQueue(initialRequests));
 
   // --- UI States ---
   const [msgModal, setMsgModal] = useState<{ isOpen: boolean; content: string }>({ isOpen: false, content: '' });
@@ -86,7 +102,7 @@ export const ManagerDashboardView: React.FC<ManagerDashboardProps> = ({ language
     if (!user?.employeeId && initialRequests.length === 0) return;
     if (initialRequests.length > 0) return;
     apiGet<ManagerRequest[]>('/api/v1/feat/manager/requests/pending')
-      .then(setRequests)
+      .then(requests => setRequests(sortManagerQueue(requests)))
       .catch(() => undefined);
   }, [user?.employeeId, initialRequests.length]);
 

@@ -120,4 +120,25 @@ describe('ManagerDashboardView - Enterprise Supervisor Approval Testing Suite', 
       expect(screen.queryByText('REQ-8842')).not.toBeInTheDocument();
     });
   });
+
+  describe('Queue Sorting', () => {
+    it('orders requests by priority and then submit time within the same priority', () => {
+      const requests: ManagerRequest[] = [
+        { ...generateDynamicRequests(1)[0], id: 'REQ-NORMAL', priority: 'NORMAL', submitTime: '2026-05-15 09:00' },
+        { ...generateDynamicRequests(1)[0], id: 'REQ-CRIT-OLD', priority: 'CRITICAL', submitTime: '2026-05-15 08:00' },
+        { ...generateDynamicRequests(1)[0], id: 'REQ-URGENT', priority: 'URGENT', submitTime: '2026-05-15 07:00' },
+        { ...generateDynamicRequests(1)[0], id: 'REQ-CRIT-NEW', priority: 'CRITICAL', submitTime: '2026-05-15 10:00' },
+      ];
+
+      render(<ManagerDashboardView {...defaultProps(requests)} />);
+
+      const bodyRows = screen.getAllByRole('row').slice(1);
+      expect(bodyRows.map(row => row.textContent)).toEqual([
+        expect.stringContaining('REQ-CRIT-OLD'),
+        expect.stringContaining('REQ-CRIT-NEW'),
+        expect.stringContaining('REQ-URGENT'),
+        expect.stringContaining('REQ-NORMAL'),
+      ]);
+    });
+  });
 });

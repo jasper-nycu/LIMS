@@ -130,7 +130,7 @@ public class FabManagerService {
 
     @Transactional(readOnly = true)
     public List<ManagerRequestSummary> listPendingRequests() {
-        return requestRepository.findByStatusOrderByCreatedAtAsc("PENDING").stream()
+        return requestRepository.findByStatusOrderedForManagerQueue("PENDING").stream()
                 .map(this::toManagerSummary)
                 .toList();
     }
