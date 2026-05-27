@@ -16,6 +16,7 @@ public class MachineResponse {
     private MachineState state;
     private int cap;
     private int loadedCount;
+    private List<String> loadedWafers;
     private String error;
     private int currentUtil;
     private List<String> owners;

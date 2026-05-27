@@ -44,7 +44,8 @@ public class Machine {
     @Transient
     private int loadedCount = 0;
 
-    // Not persisted — lab owners for notification routing
-    @Transient
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(name = "machine_owners", joinColumns = @JoinColumn(name = "machine_id"))
+    @Column(name = "owner_initials")
     private List<String> owners = new ArrayList<>();
 }

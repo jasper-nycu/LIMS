@@ -3,11 +3,15 @@ package com.tsmc.lims.backend.controller;
 import com.tsmc.lims.backend.dto.ApiResponse;
 import com.tsmc.lims.backend.dto.DispatchRequest;
 import com.tsmc.lims.backend.dto.EmgUnloadRequest;
+import com.tsmc.lims.backend.dto.MachineLogEntry;
 import com.tsmc.lims.backend.dto.MachineResponse;
 import com.tsmc.lims.backend.dto.NameRequest;
+import com.tsmc.lims.backend.service.MachineLogService;
 import com.tsmc.lims.backend.service.MachineService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -20,6 +24,7 @@ import java.util.List;
 public class MachineController {
 
     private final MachineService machineService;
+    private final MachineLogService machineLogService;
 
     @GetMapping
     public ResponseEntity<ApiResponse<List<MachineResponse>>> getAll() {
@@ -89,5 +94,28 @@ public class MachineController {
             @PathVariable String id,
             @RequestBody NameRequest request) {
         return ResponseEntity.ok(ApiResponse.ok("Recipe added", machineService.addRecipe(id, request)));
+    }
+
+    @DeleteMapping("/{id}/recipes/{name}")
+    public ResponseEntity<ApiResponse<List<String>>> deleteRecipe(
+            @PathVariable String id,
+            @PathVariable String name) {
+        return ResponseEntity.ok(ApiResponse.ok("Recipe deleted", machineService.deleteRecipe(id, name)));
+    }
+
+    /** Machine event logs */
+    @GetMapping("/{id}/logs")
+    public ResponseEntity<ApiResponse<List<MachineLogEntry>>> getLogs(@PathVariable String id) {
+        return ResponseEntity.ok(ApiResponse.ok("OK", machineLogService.getLogs(id)));
+    }
+
+    @GetMapping("/{id}/logs/download")
+    public ResponseEntity<byte[]> downloadLogs(@PathVariable String id) {
+        String content = machineLogService.getLogsAsText(id);
+        byte[] bytes = content.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + id + "-logs.txt\"")
+                .contentType(MediaType.TEXT_PLAIN)
+                .body(bytes);
     }
 }

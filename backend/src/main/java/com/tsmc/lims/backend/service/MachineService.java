@@ -31,6 +31,7 @@ public class MachineService {
     private final WipTaskRepository wipTaskRepository;
     private final RecipeRepository recipeRepository;
     private final NotificationService notificationService;
+    private final MachineLogService machineLogService;
 
     // ── Queries ──────────────────────────────────────────────────────────────
 
@@ -54,7 +55,8 @@ public class MachineService {
             throw new InvalidStateTransitionException(machineId, machine.getState().name(), "PROCESSING");
         }
 
-        List<WipTask> existing = wipTaskRepository.findByStatus(WipStatus.QUEUE).stream()
+        List<WipTask> existing = wipTaskRepository
+                .findByStatusIn(List.of(WipStatus.QUEUE, WipStatus.PENDING_SORTING)).stream()
                 .filter(t -> req.getWaferCodes().contains(t.getWaferCode()))
                 .toList();
 
@@ -89,6 +91,8 @@ public class MachineService {
         machine.setCurrentUtilization((int) Math.round((double) totalProcessing / machine.getCapacity() * 100));
         Machine saved = machineRepository.save(machine);
 
+        machineLogService.write(machineId, "OPS",
+                req.getWaferCodes().size() + " wafer(s) dispatched. Recipe: " + req.getRecipeId());
         notificationService.emit(machineId, NotificationType.SUCCESS,
                 "Dispatch Success", req.getWaferCodes().size() + " wafer(s) dispatched to " + machineId);
         return toResponse(saved);
@@ -115,6 +119,8 @@ public class MachineService {
         machine.setCurrentUtilization(0);
         Machine saved = machineRepository.save(machine);
 
+        machineLogService.write(machineId, "OPS",
+                tasks.size() + " wafer(s) unloaded. Status: COMPLETED");
         notificationService.emit(machineId, NotificationType.SUCCESS,
                 "Unload Success", tasks.size() + " wafer(s) completed on " + machineId);
         return toResponse(saved);
@@ -137,6 +143,8 @@ public class MachineService {
                 t.setStatus(WipStatus.PENDING_SORTING);
                 t.setMachineId(null);
             });
+            machineLogService.write(machineId, "OPS",
+                    "EMG Unload (REUSE): " + tasks.size() + " wafer(s) returned to WIP");
             notificationService.emit(machineId, NotificationType.INFO,
                     "Wafers Reused", tasks.size() + " wafer(s) returned to WIP from " + machineId);
         } else {
@@ -144,6 +152,8 @@ public class MachineService {
                 t.setStatus(WipStatus.SCRAPPED);
                 t.setCompletedAt(LocalDateTime.now());
             });
+            machineLogService.write(machineId, "OPS",
+                    "EMG Unload (SCRAP): " + tasks.size() + " wafer(s) scrapped");
             notificationService.emit(machineId, NotificationType.WARNING,
                     "Wafers Scrapped", tasks.size() + " wafer(s) scrapped from " + machineId);
         }
@@ -156,12 +166,13 @@ public class MachineService {
     }
 
     // ── Simulate Error (Wafer FSM flow 4 & 5, step A) ────────────────────
+    // Allows both PROCESSING and IDLE → ALARM
 
     @Transactional
     public MachineResponse simulateError(String machineId) {
         Machine machine = getMachine(machineId);
 
-        if (machine.getState() != MachineState.PROCESSING) {
+        if (machine.getState() != MachineState.PROCESSING && machine.getState() != MachineState.IDLE) {
             throw new InvalidStateTransitionException(machineId, machine.getState().name(), "ALARM");
         }
 
@@ -170,6 +181,7 @@ public class MachineService {
         machine.setCurrentUtilization(0);
         Machine saved = machineRepository.save(machine);
 
+        machineLogService.write(machineId, "ALARM", "Simulated fault triggered: ERR_SIMULATED_FAULT");
         notificationService.emit(machineId, NotificationType.ERROR,
                 "🚨 System Alert", machineId + " reported a simulated fault.");
         return toResponse(saved);
@@ -192,18 +204,20 @@ public class MachineService {
                 ? (int) Math.round((double) loadedCount / machine.getCapacity() * 100) : 0);
         Machine saved = machineRepository.save(machine);
 
+        machineLogService.write(machineId, "SYS", "Alarm resolved. Machine back online");
         notificationService.emit(machineId, NotificationType.SUCCESS,
                 "Alarm Resolved", machineId + " is back online.");
         return toResponse(saved);
     }
 
-    // ── To Maintenance (Wafer FSM flow 5, step B) ────────────────────────
+    // ── To Maintenance ────────────────────────────────────────────────────
+    // Allowed from IDLE (scheduled maintenance) or ALARM (fault-driven maintenance)
 
     @Transactional
     public MachineResponse toMaintenance(String machineId) {
         Machine machine = getMachine(machineId);
 
-        if (machine.getState() != MachineState.ALARM) {
+        if (machine.getState() != MachineState.IDLE && machine.getState() != MachineState.ALARM) {
             throw new InvalidStateTransitionException(machineId, machine.getState().name(), "MAINTENANCE");
         }
 
@@ -211,6 +225,7 @@ public class MachineService {
         machine.setCurrentUtilization(0);
         Machine saved = machineRepository.save(machine);
 
+        machineLogService.write(machineId, "MAINT", "Machine taken offline for maintenance");
         notificationService.emit(machineId, NotificationType.INFO,
                 "Machine Offline", machineId + " is now under Maintenance.");
         return toResponse(saved);
@@ -233,6 +248,7 @@ public class MachineService {
                 ? (int) Math.round((double) loadedCount / machine.getCapacity() * 100) : 0);
         Machine saved = machineRepository.save(machine);
 
+        machineLogService.write(machineId, "MAINT", "Maintenance complete. Machine set online");
         notificationService.emit(machineId, NotificationType.SUCCESS,
                 "Machine Online", machineId + " resumed processing.");
         return toResponse(saved);
@@ -260,8 +276,24 @@ public class MachineService {
         String recipeName = request.getName().trim();
         recipeRepository.save(new Recipe(recipeName, recipeName, machine));
 
+        machineLogService.write(machineId, "CFG", "Recipe added: " + recipeName);
         notificationService.emit(machineId, NotificationType.SUCCESS,
                 "Recipe Added", "Recipe '" + recipeName + "' added to " + machineId);
+        return getRecipes(machineId);
+    }
+
+    @Transactional
+    public List<String> deleteRecipe(String machineId, String recipeName) {
+        if (!machineRepository.existsById(machineId)) {
+            throw new ResourceNotFoundException("Machine", machineId);
+        }
+
+        Recipe recipe = recipeRepository.findByMachineMachineIdAndName(machineId, recipeName)
+                .orElseThrow(() -> new ResourceNotFoundException("Recipe", recipeName));
+
+        recipeRepository.delete(recipe);
+
+        machineLogService.write(machineId, "CFG", "Recipe removed: " + recipeName);
         return getRecipes(machineId);
     }
 
@@ -273,14 +305,16 @@ public class MachineService {
     }
 
     private MachineResponse toResponse(Machine m) {
-        int loadedCount = wipTaskRepository.findByMachineIdAndStatus(m.getMachineId(), WipStatus.PROCESSING).size();
+        List<WipTask> processing = wipTaskRepository.findByMachineIdAndStatus(m.getMachineId(), WipStatus.PROCESSING);
+        List<String> loadedWafers = processing.stream().map(WipTask::getWaferCode).collect(Collectors.toList());
         return new MachineResponse(
                 m.getMachineId(),
                 m.getName(),
                 m.getExpKey(),
                 m.getState(),
                 m.getCapacity(),
-                loadedCount,
+                processing.size(),
+                loadedWafers,
                 m.getErrorCode(),
                 m.getCurrentUtilization(),
                 m.getOwners()
