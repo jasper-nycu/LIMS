@@ -12,7 +12,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/api/v1/feat/notifications")
+@RequestMapping("/api/v1/notifications")
 public class NotificationController {
 
     private final FabManagerService service;

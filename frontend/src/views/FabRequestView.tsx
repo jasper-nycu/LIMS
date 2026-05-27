@@ -119,7 +119,7 @@ export const FabRequestView: React.FC<{
 
   useEffect(() => {
     if (!user?.employeeId) return;
-    apiGet<FabRequestResponse[]>(`/api/v1/feat/fab/requests?requesterId=${encodeURIComponent(user.employeeId)}`)
+    apiGet<FabRequestResponse[]>(`/api/v1/fab/requests?requesterId=${encodeURIComponent(user.employeeId)}`)
       .then(data => setRequests(data.map(item => ({
         id: item.id,
         experiments: item.experiments,
@@ -162,7 +162,7 @@ export const FabRequestView: React.FC<{
 
     if (user?.employeeId) {
       try {
-        const saved = await apiPost<FabRequestResponse>('/api/v1/feat/fab/requests', {
+        const saved = await apiPost<FabRequestResponse>('/api/v1/fab/requests', {
           requesterId: user.employeeId,
           labId: selectedLab,
           experimentKeys: selectedExps,

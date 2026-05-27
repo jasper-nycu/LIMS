@@ -101,7 +101,7 @@ export const ManagerDashboardView: React.FC<ManagerDashboardProps> = ({ language
   useEffect(() => {
     if (!user?.employeeId && initialRequests.length === 0) return;
     if (initialRequests.length > 0) return;
-    apiGet<ManagerRequest[]>('/api/v1/feat/manager/requests/pending')
+    apiGet<ManagerRequest[]>('/api/v1/manager/requests/pending')
       .then(requests => setRequests(sortManagerQueue(requests)))
       .catch(() => undefined);
   }, [user?.employeeId, initialRequests.length]);
@@ -125,7 +125,7 @@ export const ManagerDashboardView: React.FC<ManagerDashboardProps> = ({ language
         return;
       }
 
-      apiPost(`/api/v1/feat/manager/requests/${id}/approve`, { approverId: user.employeeId })
+      apiPost(`/api/v1/manager/requests/${id}/approve`, { approverId: user.employeeId })
         .then(finish)
         .catch(() => {
           setRemovingId(null);
@@ -156,7 +156,7 @@ export const ManagerDashboardView: React.FC<ManagerDashboardProps> = ({ language
         return;
       }
 
-      apiPost(`/api/v1/feat/manager/requests/${targetId}/reject`, { approverId: user.employeeId, rejectReason })
+      apiPost(`/api/v1/manager/requests/${targetId}/reject`, { approverId: user.employeeId, rejectReason })
         .then(finish)
         .catch(() => {
           setRemovingId(null);

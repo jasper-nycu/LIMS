@@ -131,7 +131,7 @@ export const LabOperationsView: React.FC<LabOperationsViewProps> = ({ language, 
 
   useEffect(() => {
     if (initialWips.length > 0) return;
-    apiGet<WipWafer[]>('/api/v1/feat/lab/wips')
+    apiGet<WipWafer[]>('/api/v1/lab/wips')
       .then(items => setWips(sortWipsForDisplay(items)))
       .catch(() => undefined);
   }, [initialWips.length]);

@@ -38,7 +38,7 @@ const App: React.FC = () => {
     const employeeId = resolveEmployeeId(user);
     if (!employeeId) return;
     try {
-      const serverNotifications = await apiGet<NotificationData[]>(`/api/v1/feat/notifications?employeeId=${encodeURIComponent(employeeId)}`);
+      const serverNotifications = await apiGet<NotificationData[]>(`/api/v1/notifications?employeeId=${encodeURIComponent(employeeId)}`);
       const visibleNotifications = serverNotifications.filter(notif => !deletedNotificationIds.current.has(notif.id));
       setNotifications(visibleNotifications);
       setHasNew(visibleNotifications.some(notif => !notif.read));
@@ -80,7 +80,7 @@ const App: React.FC = () => {
     }
     const employeeId = resolveEmployeeId(user);
     if (employeeId) {
-      apiPostVoid(`/api/v1/feat/notifications/read?employeeId=${encodeURIComponent(employeeId)}`).catch(() => undefined);
+      apiPostVoid(`/api/v1/notifications/read?employeeId=${encodeURIComponent(employeeId)}`).catch(() => undefined);
     }
   };
 
@@ -91,7 +91,7 @@ const App: React.FC = () => {
     if (updated.length === 0) setHasNew(false);
     const employeeId = resolveEmployeeId(user);
     if (employeeId) {
-      apiDelete(`/api/v1/feat/notifications/${encodeURIComponent(id)}?employeeId=${encodeURIComponent(employeeId)}`).catch(() => undefined);
+      apiDelete(`/api/v1/notifications/${encodeURIComponent(id)}?employeeId=${encodeURIComponent(employeeId)}`).catch(() => undefined);
     }
   };
 
@@ -101,7 +101,7 @@ const App: React.FC = () => {
     setHasNew(false);
     const employeeId = resolveEmployeeId(user);
     if (employeeId) {
-      apiDelete(`/api/v1/feat/notifications?employeeId=${encodeURIComponent(employeeId)}`).catch(() => undefined);
+      apiDelete(`/api/v1/notifications?employeeId=${encodeURIComponent(employeeId)}`).catch(() => undefined);
     }
   };
 
