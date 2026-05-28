@@ -1,16 +1,16 @@
 package com.tsmc.lims.backend;
 
-import com.tsmc.lims.backend.dto.DispatchRequest;
-import com.tsmc.lims.backend.dto.MachineResponse;
-import com.tsmc.lims.backend.dto.NameRequest;
-import com.tsmc.lims.backend.entity.Machine;
-import com.tsmc.lims.backend.entity.WipTask;
-import com.tsmc.lims.backend.entity.enums.MachineState;
-import com.tsmc.lims.backend.entity.enums.WipStatus;
-import com.tsmc.lims.backend.exception.InvalidStateTransitionException;
-import com.tsmc.lims.backend.repository.MachineRepository;
-import com.tsmc.lims.backend.repository.WipTaskRepository;
-import com.tsmc.lims.backend.service.MachineService;
+import com.tsmc.lims.backend.lab.dto.DispatchRequest;
+import com.tsmc.lims.backend.lab.dto.MachineResponse;
+import com.tsmc.lims.backend.lab.dto.NameRequest;
+import com.tsmc.lims.backend.lab.entity.Machine;
+import com.tsmc.lims.backend.lab.entity.WipTask;
+import com.tsmc.lims.backend.lab.entity.enums.MachineState;
+import com.tsmc.lims.backend.lab.entity.enums.WipStatus;
+import com.tsmc.lims.backend.lab.exception.InvalidStateTransitionException;
+import com.tsmc.lims.backend.lab.repository.MachineRepository;
+import com.tsmc.lims.backend.lab.repository.WipTaskRepository;
+import com.tsmc.lims.backend.lab.service.MachineService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;

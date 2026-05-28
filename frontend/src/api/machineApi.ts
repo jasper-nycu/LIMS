@@ -35,8 +35,8 @@ export type DispatchPayload = {
   requestId?: string;
 };
 
-const base = '/api/machines';
-const wipBase = '/api/wip';
+const base = '/api/v1/machines';
+const wipBase = '/api/v1/wip';
 
 async function handleResponse<T>(res: Response): Promise<T> {
   const body = await res.json().catch(() => ({}));

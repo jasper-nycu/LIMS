@@ -7,7 +7,6 @@ import { LabOperationsView } from './views/LabOperationsView';
 import { ManagerDashboardView } from './views/ManagerDashboardView';
 import { CapacityAnalyticsView } from './views/CapacityAnalyticsView';
 import { MyProfileView } from './views/MyProfileView';
-import { AuthView } from './views/AuthView';
 import { connectNotifications, sendNotification } from './api/notificationSocket';
 
 const App: React.FC = () => {
@@ -121,18 +120,6 @@ const App: React.FC = () => {
         );
     }
   };
-
-  // Public Access Control Routing Layer
-  if (!user) {
-    return (
-      <AuthView 
-        language={language}
-        onLanguageChange={setLanguage}
-        onLoginSuccess={setUser}
-        onNotify={addNotification}
-      />
-    );
-  }
 
   return (
     <div className="flex flex-col h-screen w-full overflow-hidden">
