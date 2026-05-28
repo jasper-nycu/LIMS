@@ -87,7 +87,7 @@ cd backend
 .\mvnw clean spring-boot:run  # Windows
 ```
 
-* 伺服器預設將會啟動於 **http://localhost:8080**。
+* 伺服器預設將會啟動於 **[http://localhost:8080](http://localhost:8080)**。
 * 啟動時，Hibernate 會自動驗證 Entity 與資料庫欄位型別是否匹配，並確保連線池 (HikariCP) 正常運作。
 
 ### Step 2: 執行後端單元測試
