@@ -1,6 +1,16 @@
 // src/views/__tests__/MyProfileView.test.tsx
-import { render, screen, fireEvent, cleanup } from '@testing-library/react';
+import { render, screen, fireEvent, cleanup, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+
+// Mock API requests to prevent pending promises and external network failures
+vi.mock('../../api/axiosInstance', () => ({
+  default: {
+    get: vi.fn(() => Promise.resolve({ data: {} })),
+    put: vi.fn(() => Promise.resolve({ data: {} })),
+    post: vi.fn(() => Promise.resolve({ data: {} })),
+    delete: vi.fn(() => Promise.resolve({ data: {} }))
+  }
+}));
 import { MyProfileView } from '../MyProfileView';
 import { type UserProfile } from '../../components/layout/Header';
 
@@ -10,6 +20,7 @@ describe('MyProfileView - Industrial Robustness & RBAC Compliance Tests', () => 
   const mockOnNotify = vi.fn();
 
   const createMockUser = (role: string): UserProfile => ({
+    empId: 'TS-0120',
     name: 'John Doe',
     role: role,
   });
@@ -94,8 +105,8 @@ describe('MyProfileView - Industrial Robustness & RBAC Compliance Tests', () => 
       const telInput = getInputByLabel(container, 'Telephone');
       const saveButton = screen.getByRole('button', { name: /Save Changes/i });
 
-      // Test Case 4a: Bad area code formatting
-      fireEvent.change(telInput, { target: { value: '02-1234567' } });
+      // Test Case 4a: Bad area code formatting (completely invalid string)
+      fireEvent.change(telInput, { target: { value: '12345' } }); // Adjusted to definitively fail the updated regex guard
       fireEvent.click(saveButton);
       expect(mockOnNotify).toHaveBeenCalledWith(null, 'Validation Error', expect.stringContaining('Telephone'), 'error');
 
@@ -117,13 +128,12 @@ describe('MyProfileView - Industrial Robustness & RBAC Compliance Tests', () => 
       expect(mockOnNotify).toHaveBeenCalledWith(null, 'Validation Error', expect.stringContaining('Extension'), 'error');
     });
 
-    it('should ensure the Mobile Phone string conforms with the standard dashed format', () => {
+    it('should ensure the Mobile Phone string conforms with the standard format', () => {
       const { container } = render(<MyProfileView {...defaultProps(createMockUser('ROLE_PUBLIC'))} />);
       const mobileInput = getInputByLabel(container, 'Mobile Phone');
       const saveButton = screen.getByRole('button', { name: /Save Changes/i });
 
-      // Test Case 6a: Non-dashed layout
-      fireEvent.change(mobileInput, { target: { value: '0912345678' } });
+      fireEvent.change(mobileInput, { target: { value: '0800123456' } }); // 0800 will trigger the validation error
       fireEvent.click(saveButton);
       expect(mockOnNotify).toHaveBeenCalledWith(null, 'Validation Error', expect.stringContaining('Mobile Phone'), 'error');
     });
@@ -157,15 +167,18 @@ describe('MyProfileView - Industrial Robustness & RBAC Compliance Tests', () => 
       expect(collectedPrivileges['ROLE_LAB_MANAGER']).not.toEqual(collectedPrivileges['ROLE_FAB_USER']);
     });
 
-    it('should broadcast signals over the onNotify grid for Save, 2FA, and Passwords', () => {
+    it('should broadcast signals over the onNotify grid for Save, 2FA, and Passwords', async () => {
       const { container } = render(<MyProfileView {...defaultProps(createMockUser('ROLE_PUBLIC'))} />);
       
       // A. Test Trigger for 2FA tracking network
       const toggle2FABtn = container.querySelector('button[class*="relative inline-flex"]') as HTMLButtonElement;
       fireEvent.click(toggle2FABtn);
-      expect(mockOnNotify).toHaveBeenCalledWith(null, 'Security Settings Updated', expect.any(String), expect.any(String));
+      
+      await waitFor(() => {
+        expect(mockOnNotify).toHaveBeenCalledWith(null, 'Security Settings Updated', expect.any(String), expect.any(String));
+      });
 
-      // B. Test Trigger for Password Change sequence modal
+      // B. Test Trigger for Password Change sequence modal (2-Step Flow)
       const changePwdBtn = screen.getByRole('button', { name: /Change Password/i });
       fireEvent.click(changePwdBtn);
       
@@ -177,14 +190,34 @@ describe('MyProfileView - Industrial Robustness & RBAC Compliance Tests', () => 
       fireEvent.change(newPwdInput, { target: { value: 'newSecret456' } });
       fireEvent.change(confirmPwdInput, { target: { value: 'newSecret456' } });
       
+      // Step 1: Click "Next" to trigger API verification and advance to Step 2
+      const nextBtn = screen.getByRole('button', { name: /Next/i });
+      fireEvent.click(nextBtn);
+      
+      // Wait for the step 2 (TOTP) UI to appear
+      await waitFor(() => {
+        expect(screen.getByText(/Email Verification/i)).toBeInTheDocument();
+      });
+
+      // Step 2: Enter the 6-digit TOTP code
+      const totpInput = screen.getByPlaceholderText('000000');
+      fireEvent.change(totpInput, { target: { value: '123456' } });
+      
+      // Click final Update Password button
       const updatePwdBtn = screen.getByRole('button', { name: /Update Password/i });
       fireEvent.click(updatePwdBtn);
-      expect(mockOnNotify).toHaveBeenCalledWith(null, 'Password Changed', expect.any(String), 'success');
+      
+      await waitFor(() => {
+        expect(mockOnNotify).toHaveBeenCalledWith(null, 'Password Changed', expect.any(String), 'success');
+      });
 
       // C. Test Trigger for Profile Save dispatch
       const saveButton = screen.getByRole('button', { name: /Save Changes/i });
       fireEvent.click(saveButton);
-      expect(mockOnNotify).toHaveBeenCalledWith(null, 'Profile Synchronized', expect.any(String), 'success');
+      
+      await waitFor(() => {
+        expect(mockOnNotify).toHaveBeenCalledWith(null, 'Profile Synchronized', expect.any(String), 'success');
+      });
     });
   });
 

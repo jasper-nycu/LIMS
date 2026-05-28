@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 
 export interface UserProfile {
+  empId: string;
   name: string;
   role: string;
   avatarBase64?: string;
@@ -47,6 +48,7 @@ export const Header: React.FC<HeaderProps> = ({
     setTimeout(() => {
       onClearAllNotifications();
       setIsClearing(false);
+      setShowNotifs(false);
     }, 300);
   };
 
@@ -160,7 +162,9 @@ export const Header: React.FC<HeaderProps> = ({
           <div onClick={onProfileClick} className="flex items-center gap-2 md:gap-3 cursor-pointer group pr-1">
             <div className="text-right hidden sm:block">
               <p className="text-xs md:text-sm font-bold text-slate-900 group-hover:text-corporate-blue transition-colors leading-tight">{user?.name || 'Username'}</p>
-              <p className="text-[9px] md:text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">{user?.role || 'Public'}</p>
+              <p className="text-[9px] md:text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">
+                {user?.role ? user.role.replace('ROLE_', '').replace('_', ' ') : 'PUBLIC'}
+              </p>
             </div>
             <div className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-slate-100 border border-slate-300 flex items-center justify-center text-slate-400 shadow-inner group-hover:border-corporate-blue/30 transition-all overflow-hidden">
               {user?.avatarBase64 ? (

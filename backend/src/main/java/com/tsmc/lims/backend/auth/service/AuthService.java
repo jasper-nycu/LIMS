@@ -6,20 +6,16 @@ import com.tsmc.lims.backend.auth.entity.User;
 import com.tsmc.lims.backend.auth.repository.RoleRepository;
 import com.tsmc.lims.backend.auth.repository.UserRepository;
 import com.tsmc.lims.backend.auth.security.JwtProvider;
+import com.tsmc.lims.backend.shared.service.EmailService;
 import com.tsmc.lims.backend.auth.security.EcdsaCryptoProvider;
 import com.warrenstrange.googleauth.GoogleAuthenticator;
 import com.warrenstrange.googleauth.GoogleAuthenticatorKey;
-import jakarta.mail.MessagingException;
-import jakarta.mail.internet.MimeMessage;
-import org.springframework.mail.javamail.MimeMessageHelper;
-import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import org.springframework.transaction.annotation.Transactional;
-import java.util.regex.Pattern;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -30,8 +26,9 @@ public class AuthService {
     private final RoleRepository roleRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtProvider jwtProvider;
-    private final JavaMailSender mailSender;
     private final EcdsaCryptoProvider cryptoProvider;
+    private final EmailService emailService;
+    private final com.tsmc.lims.backend.notification.service.NotificationService notificationService;
     
     // RFC 6238 TOTP Engine
     private final GoogleAuthenticator gAuth = new GoogleAuthenticator();
@@ -47,14 +44,16 @@ public class AuthService {
     private EntityManager entityManager;
 
     public AuthService(UserRepository userRepository, RoleRepository roleRepository,
-                       PasswordEncoder passwordEncoder, JwtProvider jwtProvider, 
-                       JavaMailSender mailSender, EcdsaCryptoProvider cryptoProvider) {
+                       PasswordEncoder passwordEncoder, JwtProvider jwtProvider,
+                       EcdsaCryptoProvider cryptoProvider, EmailService emailService,
+                       com.tsmc.lims.backend.notification.service.NotificationService notificationService) {
         this.userRepository = userRepository;
         this.roleRepository = roleRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtProvider = jwtProvider;
-        this.mailSender = mailSender;
         this.cryptoProvider = cryptoProvider;
+        this.emailService = emailService;
+        this.notificationService = notificationService;
     }
 
     /**
@@ -69,15 +68,30 @@ public class AuthService {
             throw new IllegalArgumentException("Authentication failed: Incorrect password.");
         }
 
+        // Set user to active (online) upon successful login
+        user.setIsActive(true);
+        userRepository.save(user);
+
         // Generate actual JWT Token
         String token = jwtProvider.generateToken(user);
 
+        // Audit Trail: Log successful authentication initialization
+        notificationService.createNotification(
+            user.getEmployeeId(),
+            "Session Started",
+            "You have successfully authenticated and logged into the system.",
+            "info"
+        );
+
         String fullName = user.getFirstName() + " " + user.getLastName();
-        UserProfile profile = new UserProfile(fullName, user.getRole().getRoleEnum());
+        UserProfile profile = new UserProfile(
+            user.getEmployeeId(),
+            fullName,
+            user.getRole().getRoleEnum()
+        );
 
         return new AuthResponse(token, profile);
     }
-
     /**
      * CORE: Pre-validates new users and dispatches TOTP via Email.
      */
@@ -94,8 +108,14 @@ public class AuthService {
         // Cache the request and secret
         registrationCache.put(request.email(), new RegistrationContext(request, secret));
 
-        // Dispatch Email configured in application.properties
-        sendTotpEmail(request.email(), totpPassword);
+        // Delegate email dispatch to the shared EmailService
+        emailService.sendTotpEmail(
+            request.email(),
+            "[Action Required] LIMS Portal - Authentication Code",
+            "Identity Verification",
+            "You are receiving this email because a registration attempt was made for the Laboratory Information Management System. Please use the following 6-digit verification code to complete your registration:",
+            totpPassword
+        );
     }
 
     /**
@@ -161,61 +181,5 @@ public class AuthService {
         newUser.setEncryptedPrivateKey(encryptedPrivKey);
 
         userRepository.save(newUser);
-    }
-
-    /**
-     * HELPER: Uses JavaMailSender to send the verification code.
-     * Implements rigorous backend email format validation before dispatch.
-     */
-    private void sendTotpEmail(String toAddress, String code) {
-        // RFC 5322 Compliant Regular Expression for standard email verification
-        String emailRegex = "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,6}$";
-        Pattern pattern = Pattern.compile(emailRegex);
-        
-        if (toAddress == null || !pattern.matcher(toAddress).matches()) {
-            throw new IllegalArgumentException("Email dispatch failed: Invalid recipient address format.");
-        }
-
-        try {
-            MimeMessage mimeMessage = mailSender.createMimeMessage();
-            MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, true, "UTF-8");
-            
-            helper.setTo(toAddress);
-            helper.setSubject("[Action Required] LIMS Portal - Authentication Code");
-
-            String htmlContent = """
-                <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f8fafc; padding: 40px 20px; margin: 0;">
-                    <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);">
-                        <div style="background-color: #0f172a; padding: 24px; text-align: center;">
-                            <h2 style="color: #ffffff; margin: 0; font-size: 24px; letter-spacing: 2px; text-transform: uppercase;">LIMS Portal</h2>
-                        </div>
-                        <div style="padding: 32px; color: #334155;">
-                            <h3 style="margin-top: 0; color: #0f172a; font-size: 20px;">Identity Verification</h3>
-                            <p style="font-size: 16px; line-height: 1.6;">Hello,</p>
-                            <p style="font-size: 16px; line-height: 1.6;">You are receiving this email because a registration or login attempt was made for the Laboratory Information Management System. Please use the following 6-digit verification code to complete your process:</p>
-                            
-                            <div style="text-align: center; margin: 36px 0;">
-                                <span style="display: inline-block; font-size: 36px; font-weight: bold; color: #2563eb; background-color: #f1f5f9; padding: 16px 32px; border-radius: 8px; letter-spacing: 12px; border: 1px solid #e2e8f0;">%s</span>
-                            </div>
-                            
-                            <p style="font-size: 14px; color: #64748b; line-height: 1.6; padding: 12px; background-color: #fffbeb; border-left: 4px solid #f59e0b; border-radius: 4px;">
-                                <strong>Security Alert:</strong> This code will expire shortly. Do not share this code with anyone. The IT department will never ask for your verification code.
-                            </p>
-                        </div>
-                        <div style="background-color: #f8fafc; border-top: 1px solid #e2e8f0; padding: 24px; text-align: center;">
-                            <p style="font-size: 12px; color: #94a3b8; margin: 0;">This is an automated message generated by the TSMC LIMS system.</p>
-                            <p style="font-size: 12px; color: #94a3b8; margin: 4px 0 0 0;">Please do not reply to this email.</p>
-                        </div>
-                    </div>
-                </div>
-                """.formatted(code);
-
-            helper.setText(htmlContent, true);
-            
-            mailSender.send(mimeMessage);
-            
-        } catch (MessagingException e) {
-            throw new RuntimeException("CRITICAL: Failed to construct and send HTML email.", e);
-        }
     }
 }

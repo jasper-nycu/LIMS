@@ -8,6 +8,7 @@ import { ManagerDashboardView } from './views/ManagerDashboardView';
 import { CapacityAnalyticsView } from './views/CapacityAnalyticsView';
 import { MyProfileView } from './views/MyProfileView';
 import { AuthView } from './views/AuthView';
+import api from './api/axiosInstance';
 
 interface Owner {
   initials: string;
@@ -45,8 +46,38 @@ const App: React.FC = () => {
   // 2. Set initial notification badge to false
   const [hasNew, setHasNew] = useState<boolean>(false); 
 
-  // User set to null (Public/Stateless mode)
-  const [user, setUser] = useState<UserProfile | null>(null);
+  // 3. JWT Auto-Restore (Stateless Session Recovery)
+  // Initialize user synchronously from localStorage so the app does not flash the login screen on refresh.
+  const [user, setUser] = useState<UserProfile | null>(() => {
+    const token = localStorage.getItem('lims_jwt');
+    if (token) {
+      try {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        if (payload.exp * 1000 > Date.now()) {
+          // avatarBase64 is intentionally empty here; the effect below will fetch it asynchronously.
+          return { empId: payload.sub, name: payload.name, role: payload.role, avatarBase64: '' } as UserProfile;
+        }
+      } catch (e) {
+        localStorage.removeItem('lims_jwt');
+      }
+    }
+    return null;
+  });
+
+  // Fetch avatar after page refresh if the user was restored from JWT but has no avatar loaded yet.
+  useEffect(() => {
+    if (!user || user.avatarBase64) return;
+    api.get('/users/me/avatar')
+      .then(res => {
+        if (res.data?.avatarBase64) {
+          setUser(prev => prev ? { ...prev, avatarBase64: res.data.avatarBase64 } : prev);
+        }
+      })
+      .catch(() => {
+        // 404 means the user has no avatar yet, ignore silently.
+      });
+  }, [user?.empId]); // Re-run only when the logged-in user changes, not on every render.
+
   const [capacitySelectedMachineId, setCapacitySelectedMachineId] = useState<string>('');
   const [capacityTimeRange, setCapacityTimeRange] = useState<string>('1h');
 
@@ -193,11 +224,12 @@ const App: React.FC = () => {
   };
 
   useEffect(() => {
+    if (!user) return; // Don't fetch data if not authenticated
+
     const fetchMachines = async () => {
       try {
-        const res = await fetch('/api/machines');
-        if (!res.ok) return;
-        const data = await res.json();
+        const res = await api.get('/machines');
+        const data = res.data;
         setMachines((prev) => {
           const next = { ...prev };
           data.forEach((m: any) => {
@@ -272,17 +304,50 @@ const App: React.FC = () => {
     };
 
     fetchMachines();
+  }, [user]); // Trigger machine data fetch on user login/logout to ensure we have the latest data when authenticated
+
+  useEffect(() => {
+    const handleAuthExpired = () => {
+      localStorage.removeItem('lims_jwt');
+      setMachines({});
+      setUser(null);
+      setCapacitySelectedMachineId('');
+    };
+
+    window.addEventListener('auth-expired', handleAuthExpired);
+    return () => window.removeEventListener('auth-expired', handleAuthExpired);
   }, []);
 
-  const handleLogout = () => {
+ const handleLogout = async () => {
+    try {
+      // Notify backend to set is_active to false
+      await api.post('/users/me/logout');
+      // Dispatch a log request to the backend database before removing authorization context
+      await api.post('/users/me/notifications/logout-log');
+    } catch (e) {
+      console.warn('Backend logout sync failed', e);
+    }
+    localStorage.removeItem('lims_jwt'); // Clear token to prevent infinite login loop
+    setMachines({});
     setUser(null);
+    setNotifications([]);
+    setHasNew(false);
     setActiveView('view-factory-request'); // Redirect on logout
   };
-
-  const handleLoginSuccess = (nextUser: UserProfile) => {
+  
+  const handleLoginSuccess = async (nextUser: UserProfile) => {
     setCapacitySelectedMachineId('');
     setCapacityTimeRange('1h');
     setUser(nextUser);
+
+    try {
+      const avatarRes = await api.get('/users/me/avatar');
+      if (avatarRes.data?.avatarBase64) {
+        setUser({ ...nextUser, avatarBase64: avatarRes.data.avatarBase64 });
+      }
+    } catch {
+      // If 404 error, just mean user has no avatar, so we can ignore it.
+    }
   };
 
   const toggleSidebar = () => setIsSidebarOpen(prev => !prev);
@@ -301,8 +366,9 @@ const App: React.FC = () => {
   };
 
   const handleMarkAsRead = () => {
-    if (notifications.length > 0) {
+    if (hasNew) {
       setHasNew(false);
+      setNotifications(prev => prev.map(n => ({ ...n, isRead: true as any })));
     }
   };
 
@@ -314,6 +380,7 @@ const App: React.FC = () => {
 
   const handleClearAllNotifs = () => {
     setNotifications([]);
+    setHasNew(false);
   };
 
   const renderContent = () => {
@@ -321,7 +388,7 @@ const App: React.FC = () => {
     switch (activeView) {
       case 'view-factory-request':
         // Mapping simple notify to the standardized 4-param notify
-        return <FabRequestView language={language} onNotify={(t, d, tp) => addNotification(null, t, d, tp)} />;
+        return <FabRequestView language={language} onNotify={(t, d, tp) => addNotification(null, t, d, tp)} user={user} />;
       case 'view-lab-operations':
         return <LabOperationsView language={language} onNotify={addNotification} machines={machines} updateMachine={updateMachine} />;
       case 'view-manager-dashboard':

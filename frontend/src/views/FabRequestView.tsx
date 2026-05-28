@@ -49,7 +49,8 @@ interface RequestItem {
 export const FabRequestView: React.FC<{ 
   language: 'en' | 'tw'; 
   onNotify: (title: string, desc: string, type: 'info' | 'success' | 'error' | 'warning') => void; 
-}> = ({ language, onNotify }) => {
+  user?: any; // get current user info
+}> = ({ language, onNotify, user }) => {
   const labs = {
     LAB_RA: { en: 'Reliability Lab (RA)', tw: '可靠度實驗室 (RA)' },
     LAB_MA: { en: 'Material Analysis Lab (MA)', tw: '材料分析實驗室 (MA)' },
@@ -173,7 +174,7 @@ export const FabRequestView: React.FC<{
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-2">
               <label htmlFor="emp-id" className="text-xs font-bold text-slate-700 uppercase tracking-wider">{ui.empId}</label>
-              <input id="emp-id" className="w-full rounded-xl border-slate-200 bg-slate-50 text-slate-500 font-mono text-sm py-3 px-4" value="#TS-0001" readOnly />
+              <input id="emp-id" className="w-full rounded-xl border-slate-200 bg-slate-50 text-slate-500 font-mono text-sm py-3 px-4" value={user?.empId || '#TS-0000'} readOnly />
             </div>
             <div className="space-y-2">
               <label htmlFor="lab-select" className="text-xs font-bold text-slate-700 uppercase tracking-wider">{ui.targetLab}</label>

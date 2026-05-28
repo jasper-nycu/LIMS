@@ -1,6 +1,7 @@
 // src/views/AuthView.tsx
 import React, { useState, useEffect, useRef } from 'react';
 import { type UserProfile } from '../components/layout/Header';
+import { TotpInput } from '../components/layout/TotpInput';
 
 interface AuthViewProps {
   language: 'en' | 'tw';
@@ -432,11 +433,7 @@ export const AuthView: React.FC<AuthViewProps> = ({
       {showTotpModal && (
         <div className="fixed inset-0 bg-slate-900/50 z-[120] flex items-center justify-center p-4 backdrop-blur-sm animate-[fadeIn_0.2s_ease-out]">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden animate-[zoomIn_0.2s_ease-out]">
-            <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-              <h3 className="font-bold text-base text-slate-900 flex items-center gap-2">
-                <span className="material-symbols-outlined text-corporate-blue">mail_lock</span>
-                {ui.totp_title}
-              </h3>
+            <div className="p-6 border-b border-slate-100 flex justify-end items-center bg-slate-50/50">
               <button 
                 onClick={() => { setShowTotpModal(false); setCountdown(0); if (timerRef.current) clearInterval(timerRef.current); }} 
                 className="text-slate-400 hover:text-slate-600 focus:outline-none cursor-pointer"
@@ -444,31 +441,23 @@ export const AuthView: React.FC<AuthViewProps> = ({
                 <span className="material-symbols-outlined text-xl">close</span>
               </button>
             </div>
-            <div className="p-6 space-y-6 text-center">
-              <p className="text-xs text-slate-500 leading-relaxed px-2">{ui.totp_desc}</p>
-              <input 
-                type="text" 
-                maxLength={6}
+            <div className="p-6">
+              <TotpInput
+                title={ui.totp_title}
+                description={ui.totp_desc}
                 value={totpCode}
-                placeholder="000000"
-                onChange={(e) => setTotpCode(e.target.value.replace(/[^\d]/g, ''))}
-                className="w-3/4 mx-auto text-center tracking-[0.4em] font-mono text-xl font-bold rounded-xl border-slate-200 bg-slate-50 h-12 focus:ring-corporate-blue focus:border-corporate-blue"
+                onChange={setTotpCode}
+                countdown={countdown}
+                resendLabel={ui.btn_resend}
+                onResend={handleResendCode}
               />
             </div>
-            <div className="p-6 pt-0 flex flex-col gap-2">
+            <div className="p-6 pt-2">
               <button 
                 onClick={handleVerifyTOTP}
                 className="w-full px-4 py-2.5 bg-corporate-blue text-white text-sm font-bold rounded-xl hover:bg-blue-700 shadow-md transition-colors cursor-pointer active:scale-95"
               >
                 {ui.btn_verify}
-              </button>
-              <button 
-                type="button"
-                disabled={countdown > 0}
-                onClick={handleResendCode}
-                className="text-[10px] font-bold text-slate-400 hover:text-slate-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all py-1 cursor-pointer"
-              >
-                {countdown > 0 ? `${ui.btn_resend} (${countdown}s)` : ui.btn_resend}
               </button>
             </div>
           </div>

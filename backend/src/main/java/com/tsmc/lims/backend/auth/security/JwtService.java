@@ -20,7 +20,8 @@ public class JwtService {
     private String secretKey;
 
     private SecretKey getSigningKey() {
-        byte[] keyBytes = Base64.getDecoder().decode(secretKey);
+        // MATCH THIS WITH JwtProvider! Use UTF-8 instead of Base64.
+        byte[] keyBytes = secretKey.getBytes(java.nio.charset.StandardCharsets.UTF_8);
         return Keys.hmacShaKeyFor(keyBytes);
     }
 

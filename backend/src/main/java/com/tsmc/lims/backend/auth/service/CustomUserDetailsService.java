@@ -22,7 +22,7 @@ public class CustomUserDetailsService implements UserDetailsService {
     @Override
     public UserDetails loadUserByUsername(String employeeId) throws UsernameNotFoundException {
         // 1. Search for the user in the database using JdbcTemplate
-        String sql = "SELECT employee_id, password_hash, role FROM users WHERE employee_id = ?";
+        String sql = "SELECT employee_id, password_hash, role_enum FROM users WHERE employee_id = ?";
         List<Map<String, Object>> users = jdbcTemplate.queryForList(sql, employeeId);
         
         // 2. If no user is found, throw UsernameNotFoundException to let Spring Security handle it
@@ -34,7 +34,7 @@ public class CustomUserDetailsService implements UserDetailsService {
         Map<String, Object> userData = users.get(0);
         String empId = (String) userData.get("employee_id");
         String password = (String) userData.get("password_hash"); 
-        String role = (String) userData.get("role"); 
+        String role = (String) userData.get("role_enum");
         
         // 4. Process authority string: Spring Security default role names must start with "ROLE_"
         String authority = (role != null && role.startsWith("ROLE_")) ? role : "ROLE_" + role;

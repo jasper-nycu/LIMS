@@ -100,6 +100,16 @@ CREATE TABLE IF NOT EXISTS wip_tasks (
     dispatched_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS notifications (
+    notif_id SERIAL PRIMARY KEY,
+    user_id VARCHAR(20) REFERENCES users(employee_id),
+    title VARCHAR(120) NOT NULL,
+    message TEXT,
+    type VARCHAR(20) DEFAULT 'info',
+    is_read BOOLEAN DEFAULT false,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 -- 2. Data Insertion (DML)
 -- ------------------------------------------
 

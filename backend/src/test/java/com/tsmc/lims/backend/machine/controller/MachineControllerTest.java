@@ -1,12 +1,11 @@
 package com.tsmc.lims.backend.machine.controller;
 
+import com.tsmc.lims.backend.machine.dto.MachineDashboardDto;
+import com.tsmc.lims.backend.machine.service.MachineService;
 import org.junit.jupiter.api.Test;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.util.ReflectionTestUtils;
 
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
@@ -15,37 +14,29 @@ import static org.mockito.Mockito.when;
 class MachineControllerTest {
 
     @Test
-    void getMachinesReturnsCapacityAnalyticsContract() {
-        JdbcTemplate jdbcTemplate = mock(JdbcTemplate.class);
+    void getMachinesDelegatesToMachineService() {
+        // Arrange
+        MachineService machineService = mock(MachineService.class);
         MachineController controller = new MachineController();
-        ReflectionTestUtils.setField(controller, "jdbcTemplate", jdbcTemplate);
+        ReflectionTestUtils.setField(controller, "machineService", machineService);
 
-        Map<String, Object> machine = new HashMap<>();
-        machine.put("machine_id", "SEM-01");
-        machine.put("name", "Surface Scan (SEM)");
-        machine.put("capacity", 25);
-        machine.put("state", "PROCESSING");
-        machine.put("current_utilization", 72);
-        machine.put("error_code", null);
+        // Prepare a mock DTO response
+        MachineDashboardDto mockDto = new MachineDashboardDto(
+                "SEM-01", "Surface Scan (SEM)", 25, "PROCESSING", 72, 18, null
+        );
+        when(machineService.getMachineDashboards()).thenReturn(List.of(mockDto));
 
-        when(jdbcTemplate.queryForList("SELECT machine_id, name, capacity, state, current_utilization, error_code FROM machines"))
-                .thenReturn(List.of(machine));
-        when(jdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM wip_tasks WHERE machine_id = ? AND status = 'PROCESSING'",
-                Integer.class,
-                "SEM-01"
-        )).thenReturn(18);
+        // Act
+        List<MachineDashboardDto> response = controller.getMachines();
 
-        List<Map<String, Object>> response = controller.getMachines();
-
+        // Assert
         assertThat(response).hasSize(1);
-        assertThat(response.get(0))
-                .containsEntry("id", "SEM-01")
-                .containsEntry("name", "Surface Scan (SEM)")
-                .containsEntry("cap", 25)
-                .containsEntry("currentUtil", 72)
-                .containsEntry("loadedCount", 18)
-                .containsEntry("error", null);
-        assertThat(response.get(0)).doesNotContainKeys("machine_id", "capacity", "current_utilization", "error_code");
+        assertThat(response.get(0).id()).isEqualTo("SEM-01");
+        assertThat(response.get(0).name()).isEqualTo("Surface Scan (SEM)");
+        assertThat(response.get(0).cap()).isEqualTo(25);
+        assertThat(response.get(0).state()).isEqualTo("PROCESSING");
+        assertThat(response.get(0).currentUtil()).isEqualTo(72);
+        assertThat(response.get(0).loadedCount()).isEqualTo(18);
+        assertThat(response.get(0).error()).isNull();
     }
 }
