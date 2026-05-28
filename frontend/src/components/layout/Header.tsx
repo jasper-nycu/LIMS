@@ -2,9 +2,10 @@
 import React, { useState } from 'react';
 
 export interface UserProfile {
-  employeeId?: string;
+  empId?: string;
   name: string;
   role: string;
+  avatarBase64?: string;
 }
 
 export interface NotificationData {

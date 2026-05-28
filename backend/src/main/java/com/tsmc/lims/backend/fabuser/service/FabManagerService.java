@@ -139,7 +139,7 @@ public class FabManagerService {
     public ManagerRequestSummary approveRequest(String requestId, String approverId) {
         FabRequestEntity request = loadRequest(requestId);
         ensurePending(request);
-        UserEntity approver = userRepository.findById(defaultIfBlank(approverId, "TS-9001"))
+        UserEntity approver = userRepository.findById(required(approverId, "approverId"))
                 .orElseThrow(() -> notFound("Approver not found."));
 
         request.approve(approver);
@@ -170,7 +170,7 @@ public class FabManagerService {
         if (rejectReason == null || rejectReason.isBlank()) {
             throw badRequest("rejectReason is required.");
         }
-        UserEntity approver = userRepository.findById(defaultIfBlank(approverId, "TS-9001"))
+        UserEntity approver = userRepository.findById(required(approverId, "approverId"))
                 .orElseThrow(() -> notFound("Approver not found."));
         request.reject(approver, rejectReason.trim());
         notifyRequester(

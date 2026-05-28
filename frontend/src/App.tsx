@@ -12,11 +12,7 @@ import { apiDelete, apiGet, apiPostVoid } from './api';
 
 const resolveEmployeeId = (user: UserProfile | null): string | undefined => {
   if (!user) return undefined;
-  if (user.employeeId) return user.employeeId;
-  if (user.role === 'ROLE_SYSADMIN') return 'TS-0001';
-  if (user.role === 'ROLE_FAB_USER') return 'TS-1001';
-  if (user.role === 'ROLE_LAB_MANAGER') return 'TS-9001';
-  return undefined;
+  return user.empId;
 };
 
 const App: React.FC = () => {
@@ -49,9 +45,9 @@ const App: React.FC = () => {
 
   useEffect(() => {
     refreshNotifications();
-  }, [user?.role, user?.employeeId]);
+  }, [user?.role, user?.empId]);
 
-  const apiUser = user ? { ...user, employeeId: resolveEmployeeId(user) } : null;
+  const apiUser = user;
 
   const handleLogout = () => {
     setUser(null);

@@ -1,6 +1,7 @@
 // src/views/AuthView.tsx
 import React, { useState, useEffect, useRef } from 'react';
 import { type UserProfile } from '../components/layout/Header';
+import { API_BASE_URL } from '../api';
 
 interface AuthViewProps {
   language: 'en' | 'tw';
@@ -118,24 +119,69 @@ export const AuthView: React.FC<AuthViewProps> = ({
     }, 1000);
   };
 
-  const handleLoginSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    // Simulate structural user profile initialization mapping back to App layout
-    const userDirectory: Record<string, UserProfile> = {
-      'TS-0001': { name: 'Jasper Li', role: 'ROLE_SYSADMIN' },
-      'TS-1001': { name: 'Fab User', role: 'ROLE_FAB_USER' },
-      'TS-9001': { name: 'Lab Manager', role: 'ROLE_LAB_MANAGER' },
-    };
-    const signedInUser = userDirectory[loginForm.empId] ?? {
-      name: 'Standard Operator',
-      role: 'ROLE_LAB_OPERATOR',
-    };
-
-    onNotify(null, 'Auth Success', ui.notif_welcome, 'success');
-    onLoginSuccess(signedInUser);
+  const readResponseBody = async (response: Response): Promise<any> => {
+    const responseText = await response.text();
+    if (!responseText) return {};
+    try {
+      return JSON.parse(responseText);
+    } catch {
+      return {};
+    }
   };
 
-  const handleRegisterClick = (e: React.FormEvent) => {
+  const handleLoginSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/v1/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(loginForm)
+      });
+      const data = await readResponseBody(response);
+
+      if (!response.ok) {
+        setAlertModal({
+          show: true,
+          title: language === 'en' ? 'Login Failed' : '登入失敗',
+          message: data.message || `HTTP Error ${response.status}`,
+          type: 'error'
+        });
+        return;
+      }
+
+      if (data.token) {
+        localStorage.setItem('lims_jwt', data.token);
+      }
+
+      const signedInUser = {
+        ...data.user,
+        empId: data.user.empId ?? data.user.employeeId,
+      } as UserProfile;
+
+      if (!signedInUser.empId || !signedInUser.role) {
+        setAlertModal({
+          show: true,
+          title: language === 'en' ? 'Login Failed' : '登入失敗',
+          message: language === 'en' ? 'Login response is missing user profile data.' : '登入回應缺少使用者資料。',
+          type: 'error'
+        });
+        return;
+      }
+
+      onNotify(null, 'Auth Success', ui.notif_welcome, 'success');
+      onLoginSuccess(signedInUser);
+    } catch {
+      setAlertModal({
+        show: true,
+        title: language === 'en' ? 'Network Error' : '連線失敗',
+        message: language === 'en' ? 'Cannot connect to backend server.' : '無法連線到後端伺服器。',
+        type: 'error'
+      });
+    }
+  };
+
+  const handleRegisterClick = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!regForm.email.includes('@')) {
       setAlertModal({ show: true, title: language === 'en' ? 'Validation Error' : '驗證錯誤', message: ui.validation_email, type: 'error' });
@@ -150,10 +196,35 @@ export const AuthView: React.FC<AuthViewProps> = ({
       return;
     }
 
-    // Open verification process window and run timer loops
-    setTotpCode('');
-    setShowTotpModal(true);
-    startCountdown();
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/v1/auth/register/initiate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(regForm)
+      });
+      const data = await readResponseBody(response);
+
+      if (!response.ok) {
+        setAlertModal({
+          show: true,
+          title: language === 'en' ? 'Registration Error' : '註冊失敗',
+          message: data.message || `HTTP Error ${response.status}`,
+          type: 'error'
+        });
+        return;
+      }
+
+      setTotpCode('');
+      setShowTotpModal(true);
+      startCountdown();
+    } catch {
+      setAlertModal({
+        show: true,
+        title: language === 'en' ? 'Network Error' : '連線失敗',
+        message: language === 'en' ? 'Cannot connect to backend server.' : '無法連線到後端伺服器。',
+        type: 'error'
+      });
+    }
   };
 
   const handleResendCode = () => {
@@ -167,19 +238,44 @@ export const AuthView: React.FC<AuthViewProps> = ({
     startCountdown();
   };
 
-  const handleVerifyTOTP = () => {
+  const handleVerifyTOTP = async () => {
     if (totpCode.length !== 6 || isNaN(Number(totpCode))) {
       setAlertModal({ show: true, title: language === 'en' ? 'Verification Error' : '驗證錯誤', message: ui.validation_totp, type: 'error' });
       return;
     }
 
-    if (timerRef.current) clearInterval(timerRef.current);
-    setCountdown(0);
-    setShowTotpModal(false);
-    setIsRegisterMode(false); // Route back to sign in segment
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/v1/auth/register/verify`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: regForm.email, code: totpCode })
+      });
+      const data = await readResponseBody(response);
 
-    // Replace native browser alert with industrial custom modal
-    setAlertModal({ show: true, title: language === 'en' ? 'Registration Successful' : '註冊成功', message: ui.notif_reg_success, type: 'success' });
+      if (!response.ok) {
+        setAlertModal({
+          show: true,
+          title: language === 'en' ? 'Verification Error' : '驗證失敗',
+          message: data.message || `HTTP Error ${response.status}`,
+          type: 'error'
+        });
+        return;
+      }
+
+      if (timerRef.current) clearInterval(timerRef.current);
+      setCountdown(0);
+      setShowTotpModal(false);
+      setIsRegisterMode(false); // Route back to sign in segment
+
+      setAlertModal({ show: true, title: language === 'en' ? 'Registration Successful' : '註冊成功', message: data.message || ui.notif_reg_success, type: 'success' });
+    } catch {
+      setAlertModal({
+        show: true,
+        title: language === 'en' ? 'Network Error' : '連線失敗',
+        message: language === 'en' ? 'Cannot connect to backend server.' : '無法連線到後端伺服器。',
+        type: 'error'
+      });
+    }
   };
 
   return (
@@ -218,7 +314,7 @@ export const AuthView: React.FC<AuthViewProps> = ({
                 type="text" 
                 required
                 value={loginForm.empId}
-                placeholder="TS-0001"
+                placeholder="Employee ID"
                 onChange={(e) => setLoginForm({ ...loginForm, empId: e.target.value.toUpperCase() })}
                 className="w-full rounded-xl border-slate-200 focus:ring-corporate-blue focus:border-corporate-blue text-sm h-11 px-4"
               />

@@ -4,6 +4,11 @@
 -- Note: All comments and schema definitions are in English.
 -- ==========================================
 
+-- 0. Sequence Definitions
+-- ------------------------------------------
+-- Create a centralized sequence for generating sequential Employee IDs (e.g., TS-0001)
+CREATE SEQUENCE IF NOT EXISTS user_emp_id_seq START WITH 1 INCREMENT BY 1;
+
 -- 1. Table Definitions (DDL)
 -- ------------------------------------------
 
@@ -123,19 +128,6 @@ INSERT INTO roles (role_enum, role_name, permissions) VALUES
     ('ROLE_FAB_USER', 'Fab User', '["CREATE_REQ", "TRACK_REQ"]'),
     ('ROLE_PUBLIC', 'Public', '["VIEW_PROFILE"]')
 ON CONFLICT (role_enum) DO NOTHING;
-
--- Insert baseline users for local development and Fab/Manager workflows
-INSERT INTO users (
-    employee_id, role_enum, is_active, title, first_name, last_name, department, email,
-    telephone, extension, mobile_phone, password_hash, password_salt, public_key
-) VALUES
-    ('TS-0001', 'ROLE_SYSADMIN', true, 'Ms.', 'System', 'Admin', 'IT Operations', 'sysadmin@lims.local',
-     '03-5712121', '0001', '0912000000', 'dev-password-hash', 'dev-salt', 'dev-public-key'),
-    ('TS-1001', 'ROLE_FAB_USER', true, 'Ms.', 'Fab', 'User', 'Factory Integration', 'fab.user@lims.local',
-     '03-5712121', '1001', '0912000001', 'dev-password-hash', 'dev-salt', 'dev-public-key'),
-    ('TS-9001', 'ROLE_LAB_MANAGER', true, 'Dr.', 'Lab', 'Manager', 'Laboratory Operations', 'lab.manager@lims.local',
-     '03-5712121', '9001', '0912900001', 'dev-password-hash', 'dev-salt', 'dev-public-key')
-ON CONFLICT (employee_id) DO NOTHING;
 
 -- Insert Laboratories
 INSERT INTO laboratories (lab_id, lab_name) VALUES

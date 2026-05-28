@@ -167,8 +167,10 @@ export const MyProfileView: React.FC<MyProfileViewProps> = ({
     }
 
     onUpdateUser({
+      empId: user?.empId,
       name: currentFullName || ui.placeholder_user,
-      role: displayRole
+      role: displayRole,
+      avatarBase64: user?.avatarBase64
     });
     
     onNotify(null, 'Profile Synchronized', 'User settings successfully pushed to global layout.', 'success');

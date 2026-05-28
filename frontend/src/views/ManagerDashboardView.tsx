@@ -99,12 +99,12 @@ export const ManagerDashboardView: React.FC<ManagerDashboardProps> = ({ language
   const [removingId, setRemovingId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!user?.employeeId && initialRequests.length === 0) return;
+    if (!user?.empId && initialRequests.length === 0) return;
     if (initialRequests.length > 0) return;
     apiGet<ManagerRequest[]>('/api/v1/manager/requests/pending')
       .then(requests => setRequests(sortManagerQueue(requests)))
       .catch(() => undefined);
-  }, [user?.employeeId, initialRequests.length]);
+  }, [user?.empId, initialRequests.length]);
 
   // --- Handlers ---
   const handleApprove = (id: string) => {
@@ -114,18 +114,18 @@ export const ManagerDashboardView: React.FC<ManagerDashboardProps> = ({ language
       const finish = () => {
         setRequests(prev => prev.filter(r => r.id !== id));
         setRemovingId(null);
-        if (!user?.employeeId) {
+        if (!user?.empId) {
           onNotify(null, ui.notifApprove, `${id} has been moved to Lab WIP queue.`, 'success');
         }
         onRefreshNotifications?.();
       };
 
-      if (!user?.employeeId) {
+      if (!user?.empId) {
         finish();
         return;
       }
 
-      apiPost(`/api/v1/manager/requests/${id}/approve`, { approverId: user.employeeId })
+      apiPost(`/api/v1/manager/requests/${id}/approve`, { approverId: user.empId })
         .then(finish)
         .catch(() => {
           setRemovingId(null);
@@ -144,19 +144,19 @@ export const ManagerDashboardView: React.FC<ManagerDashboardProps> = ({ language
       const finish = () => {
         setRequests(prev => prev.filter(r => r.id !== targetId));
         setRemovingId(null);
-        if (!user?.employeeId) {
+        if (!user?.empId) {
           onNotify(null, ui.notifReject, `${targetId} rejected: ${rejectReason}`, 'error');
         }
         setRejReason('');
         onRefreshNotifications?.();
       };
 
-      if (!user?.employeeId) {
+      if (!user?.empId) {
         finish();
         return;
       }
 
-      apiPost(`/api/v1/manager/requests/${targetId}/reject`, { approverId: user.employeeId, rejectReason })
+      apiPost(`/api/v1/manager/requests/${targetId}/reject`, { approverId: user.empId, rejectReason })
         .then(finish)
         .catch(() => {
           setRemovingId(null);

@@ -118,8 +118,8 @@ export const FabRequestView: React.FC<{
   const [modal, setModal] = useState({ isOpen: false, title: '', message: '', type: 'info' as any });
 
   useEffect(() => {
-    if (!user?.employeeId) return;
-    apiGet<FabRequestResponse[]>(`/api/v1/fab/requests?requesterId=${encodeURIComponent(user.employeeId)}`)
+    if (!user?.empId) return;
+    apiGet<FabRequestResponse[]>(`/api/v1/fab/requests?requesterId=${encodeURIComponent(user.empId)}`)
       .then(data => setRequests(data.map(item => ({
         id: item.id,
         experiments: item.experiments,
@@ -128,7 +128,7 @@ export const FabRequestView: React.FC<{
         priority: item.priority,
       }))))
       .catch(() => undefined);
-  }, [user?.employeeId]);
+  }, [user?.empId]);
 
   const handleAddWafer = () => {
     const val = waferInput.trim().toUpperCase();
@@ -160,10 +160,10 @@ export const FabRequestView: React.FC<{
       return;
     }
 
-    if (user?.employeeId) {
+    if (user?.empId) {
       try {
         const saved = await apiPost<FabRequestResponse>('/api/v1/fab/requests', {
-          requesterId: user.employeeId,
+          requesterId: user.empId,
           labId: selectedLab,
           experimentKeys: selectedExps,
           waferIds: wafers,
@@ -241,7 +241,7 @@ export const FabRequestView: React.FC<{
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-2">
               <label htmlFor="emp-id" className="text-xs font-bold text-slate-700 uppercase tracking-wider">{ui.empId}</label>
-              <input id="emp-id" className="w-full rounded-xl border-slate-200 bg-slate-50 text-slate-500 font-mono text-sm py-3 px-4" value={`#${user?.employeeId ?? 'TS-0001'}`} readOnly />
+              <input id="emp-id" className="w-full rounded-xl border-slate-200 bg-slate-50 text-slate-500 font-mono text-sm py-3 px-4" value={`#${user?.empId ?? 'N/A'}`} readOnly />
             </div>
             <div className="space-y-2">
               <label htmlFor="lab-select" className="text-xs font-bold text-slate-700 uppercase tracking-wider">{ui.targetLab}</label>
