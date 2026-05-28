@@ -1,5 +1,5 @@
 # .github/workflows/ci.yml
-name: LIMS Frontend Continuous Integration
+name: LIMS Full-Stack Continuous Integration
 
 on:
   push:
@@ -7,17 +7,17 @@ on:
       - main
     paths-ignore:
       - 'docs/**'
-      - '*.md'
+      - '**/*.md'
   pull_request:
     branches:
       - main
     paths-ignore:
       - 'docs/**'
-      - '*.md'
+      - '**/*.md'
 
 jobs:
-  build-and-test:
-    name: Regression Testing & Compilation Guardrails
+  frontend-build-and-test:
+    name: Frontend Regression Testing & Compilation Guardrails
     runs-on: ubuntu-latest
 
     defaults:
@@ -40,3 +40,49 @@ jobs:
 
       - name: Execute Enterprise Automated Unit Test Suites
         run: npm run test:ci
+
+  backend-build-and-test:
+    name: Backend Regression Testing & Compilation Guardrails
+    runs-on: ubuntu-latest
+
+    # ? Spin up a PostgreSQL container for Integration Tests
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_DB: lims_db
+          POSTGRES_USER: lims_admin
+          POSTGRES_PASSWORD: SuperSecretPassword
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    defaults:
+      run:
+        working-directory: ./backend
+
+    steps:
+      - name: Checkout Repository Configuration
+        uses: actions/checkout@v4
+
+      - name: Initialize Enterprise Java Environment
+        uses: actions/setup-java@v4
+        with:
+          java-version: '25'
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: Grant Execute Permission for Maven Wrapper
+        run: chmod +x mvnw
+
+      - name: Initialize Database Schema and Seed Data
+        run: |
+          sudo apt-get update && sudo apt-get install -y postgresql-client
+          PGPASSWORD=SuperSecretPassword psql -h localhost -U lims_admin -d lims_db -f ../database/init.sql
+
+      - name: Execute Spring Boot Automated Unit Test Suites
+        run: ./mvnw clean test
