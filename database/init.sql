@@ -56,6 +56,7 @@ CREATE TABLE IF NOT EXISTS machines (
     machine_id VARCHAR(50) PRIMARY KEY,
     lab_id VARCHAR(20) REFERENCES laboratories(lab_id),
     name VARCHAR(100) NOT NULL,
+    exp_key VARCHAR(50) REFERENCES experiments(exp_key),
     capacity INT NOT NULL,
     state VARCHAR(20) DEFAULT 'IDLE',
     current_utilization INT DEFAULT 0,
@@ -66,6 +67,12 @@ CREATE TABLE IF NOT EXISTS recipes (
     recipe_id VARCHAR(100) PRIMARY KEY,
     machine_id VARCHAR(50) REFERENCES machines(machine_id),
     recipe_name VARCHAR(100) NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS machine_owners (
+    machine_id VARCHAR(50) REFERENCES machines(machine_id),
+    owner_initials VARCHAR(50) NOT NULL,
+    PRIMARY KEY (machine_id, owner_initials)
 );
 
 CREATE TABLE IF NOT EXISTS requests (
@@ -105,12 +112,24 @@ ALTER TABLE wip_tasks ADD COLUMN IF NOT EXISTS recipe_id  VARCHAR(100) REFERENCE
 ALTER TABLE wip_tasks ADD COLUMN IF NOT EXISTS priority   VARCHAR(20) DEFAULT 'NORMAL';
 ALTER TABLE wip_tasks ADD COLUMN IF NOT EXISTS completed_at TIMESTAMP;
 
+CREATE TABLE IF NOT EXISTS machine_logs (
+    id BIGSERIAL PRIMARY KEY,
+    machine_id VARCHAR(50) NOT NULL REFERENCES machines(machine_id),
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    level VARCHAR(10) NOT NULL,
+    message TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_machine_logs_machine_id ON machine_logs(machine_id);
+CREATE INDEX IF NOT EXISTS idx_machine_logs_created_at ON machine_logs(created_at);
+
 CREATE TABLE IF NOT EXISTS notifications (
-    notification_id BIGSERIAL PRIMARY KEY,
-    machine_id VARCHAR(50) REFERENCES machines(machine_id),
-    type VARCHAR(20) NOT NULL,
-    title VARCHAR(200) NOT NULL,
-    description TEXT,
+    notif_id SERIAL PRIMARY KEY,
+    user_id VARCHAR(20) REFERENCES users(employee_id),
+    title VARCHAR(20) NOT NULL,
+    message TEXT,
+    type VARCHAR(20) DEFAULT 'info',
+    is_read BOOLEAN DEFAULT false,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -145,14 +164,24 @@ INSERT INTO experiments (exp_key, lab_id, exp_name) VALUES
 ON CONFLICT (exp_key) DO NOTHING;
 
 -- Insert Machine Status and Capacities
-INSERT INTO machines (machine_id, lab_id, name, capacity, state, current_utilization) VALUES
-    ('SEM-01', 'LAB_MA', 'Surface Scan (SEM)', 25, 'PROCESSING', 72),
-    ('BAKE-OVEN-01', 'LAB_RA', 'High-Temp Bake', 50, 'IDLE', 0),
-    ('TEM-01', 'LAB_MA', 'Deep Layer Analysis', 10, 'IDLE', 0),
-    ('FIB-01', 'LAB_FA', 'Focused Ion Beam (FIB)', 1, 'IDLE', 0),
-    ('E-TEST-02', 'LAB_RA', 'Electrical Test', 50, 'PROCESSING', 84),
-    ('XRD-01', 'LAB_MA', 'X-Ray Diffraction', 25, 'IDLE', 0)
+INSERT INTO machines (machine_id, lab_id, name, exp_key, capacity, state, current_utilization) VALUES
+    ('SEM-01',       'LAB_MA', 'Surface Scan (SEM)',     'exp_sem',   25, 'IDLE', 0),
+    ('BAKE-OVEN-01', 'LAB_RA', 'High-Temp Bake',         'exp_bake',  50, 'IDLE', 0),
+    ('TEM-01',       'LAB_MA', 'Deep Layer Analysis',    'exp_deep',  10, 'IDLE', 0),
+    ('FIB-01',       'LAB_FA', 'Focused Ion Beam (FIB)', 'exp_fib',   1,  'IDLE', 0),
+    ('E-TEST-02',    'LAB_RA', 'Electrical Test',        'exp_etest', 50, 'IDLE', 0),
+    ('XRD-01',       'LAB_MA', 'X-Ray Diffraction',      'exp_xrd',   25, 'IDLE', 0)
 ON CONFLICT (machine_id) DO NOTHING;
+
+-- Insert Machine Owners
+INSERT INTO machine_owners (machine_id, owner_initials) VALUES
+    ('SEM-01',       'MW'), ('SEM-01',       'JS'),
+    ('BAKE-OVEN-01', 'SC'),
+    ('TEM-01',       'RK'),
+    ('FIB-01',       'CH'),
+    ('E-TEST-02',    'AS'),
+    ('XRD-01',       'TH')
+ON CONFLICT DO NOTHING;
 
 -- Insert Machine Recipes
 INSERT INTO recipes (recipe_id, machine_id, recipe_name) VALUES
@@ -168,34 +197,42 @@ INSERT INTO recipes (recipe_id, machine_id, recipe_name) VALUES
     ('XRD-Crystal-Scan', 'XRD-01', 'XRD-Crystal-Scan')
 ON CONFLICT (recipe_id) DO NOTHING;
 
--- 3. Dynamic WIP Task Initialization for Processing Machines
+-- 3. Test WIP Queue Data
 -- ------------------------------------------
 
--- Create a dummy system request to anchor the active WIP wafers (Requester is NULL)
-INSERT INTO requests (request_id, lab_id, priority, status, remarks) VALUES 
-    ('REQ-SYS-INIT', 'LAB_MA', 'NORMAL', 'APPROVED', 'System initialization batch for active processing machines.')
+-- Six approved requests, one per experiment type, no requester (nullable)
+INSERT INTO requests (request_id, lab_id, priority, status, remarks) VALUES
+    ('REQ-TEST-001', 'LAB_MA', 'NORMAL',   'APPROVED', 'SEM surface scan — oxide layer QC'),
+    ('REQ-TEST-002', 'LAB_RA', 'URGENT',   'APPROVED', 'High-temp bake — DRAM thermal stress'),
+    ('REQ-TEST-003', 'LAB_MA', 'NORMAL',   'APPROVED', 'TEM deep analysis — defect investigation'),
+    ('REQ-TEST-004', 'LAB_FA', 'CRITICAL', 'APPROVED', 'FIB circuit edit — failure analysis'),
+    ('REQ-TEST-005', 'LAB_RA', 'NORMAL',   'APPROVED', 'E-Test parametric — yield verification'),
+    ('REQ-TEST-006', 'LAB_MA', 'URGENT',   'APPROVED', 'XRD crystal structure — process check')
 ON CONFLICT (request_id) DO NOTHING;
 
--- Batch insert 18 Wafers for SEM-01 (W-1001 to W-1018) using generate_series
-INSERT INTO wafers (request_id, wafer_code)
-SELECT 'REQ-SYS-INIT', 'W-' || to_char(g.i, 'FM0000')
-FROM generate_series(1001, 1018) AS g(i)
+-- Wafers: 3 for SEM, 2 for Bake, 2 for TEM, 1 for FIB (cap=1), 3 for E-Test, 2 for XRD
+INSERT INTO wafers (request_id, wafer_code) VALUES
+    ('REQ-TEST-001', 'W-0001'), ('REQ-TEST-001', 'W-0002'), ('REQ-TEST-001', 'W-0003'),
+    ('REQ-TEST-002', 'W-0004'), ('REQ-TEST-002', 'W-0005'),
+    ('REQ-TEST-003', 'W-0006'), ('REQ-TEST-003', 'W-0007'),
+    ('REQ-TEST-004', 'W-0008'),
+    ('REQ-TEST-005', 'W-0009'), ('REQ-TEST-005', 'W-0010'), ('REQ-TEST-005', 'W-0011'),
+    ('REQ-TEST-006', 'W-0012'), ('REQ-TEST-006', 'W-0013')
 ON CONFLICT DO NOTHING;
 
--- Batch insert WIP Tasks for SEM-01
-INSERT INTO wip_tasks (request_id, wafer_code, exp_key, machine_id, status)
-SELECT 'REQ-SYS-INIT', 'W-' || to_char(g.i, 'FM0000'), 'exp_sem', 'SEM-01', 'PROCESSING'
-FROM generate_series(1001, 1018) AS g(i)
-ON CONFLICT DO NOTHING;
-
--- Batch insert 42 Wafers for E-TEST-02 (W-2001 to W-2042) using generate_series
-INSERT INTO wafers (request_id, wafer_code)
-SELECT 'REQ-SYS-INIT', 'W-' || to_char(g.i, 'FM0000')
-FROM generate_series(2001, 2042) AS g(i)
-ON CONFLICT DO NOTHING;
-
--- Batch insert WIP Tasks for E-TEST-02
-INSERT INTO wip_tasks (request_id, wafer_code, exp_key, machine_id, status)
-SELECT 'REQ-SYS-INIT', 'W-' || to_char(g.i, 'FM0000'), 'exp_etest', 'E-TEST-02', 'PROCESSING'
-FROM generate_series(2001, 2042) AS g(i)
+-- WIP QUEUE tasks — all waiting to be dispatched, with mixed priorities
+INSERT INTO wip_tasks (request_id, wafer_code, exp_key, status, priority) VALUES
+    ('REQ-TEST-001', 'W-0001', 'exp_sem',   'QUEUE', 'URGENT'),
+    ('REQ-TEST-001', 'W-0002', 'exp_sem',   'QUEUE', 'NORMAL'),
+    ('REQ-TEST-001', 'W-0003', 'exp_sem',   'QUEUE', 'NORMAL'),
+    ('REQ-TEST-002', 'W-0004', 'exp_bake',  'QUEUE', 'URGENT'),
+    ('REQ-TEST-002', 'W-0005', 'exp_bake',  'QUEUE', 'NORMAL'),
+    ('REQ-TEST-003', 'W-0006', 'exp_deep',  'QUEUE', 'NORMAL'),
+    ('REQ-TEST-003', 'W-0007', 'exp_deep',  'QUEUE', 'URGENT'),
+    ('REQ-TEST-004', 'W-0008', 'exp_fib',   'QUEUE', 'CRITICAL'),
+    ('REQ-TEST-005', 'W-0009', 'exp_etest', 'QUEUE', 'NORMAL'),
+    ('REQ-TEST-005', 'W-0010', 'exp_etest', 'QUEUE', 'NORMAL'),
+    ('REQ-TEST-005', 'W-0011', 'exp_etest', 'QUEUE', 'URGENT'),
+    ('REQ-TEST-006', 'W-0012', 'exp_xrd',   'QUEUE', 'URGENT'),
+    ('REQ-TEST-006', 'W-0013', 'exp_xrd',   'QUEUE', 'NORMAL')
 ON CONFLICT DO NOTHING;

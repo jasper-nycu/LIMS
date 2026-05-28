@@ -22,8 +22,19 @@ public class NotificationController {
         return ResponseEntity.ok(ApiResponse.ok("OK", notificationService.findAll()));
     }
 
-    @GetMapping("/machine/{machineId}")
-    public ResponseEntity<ApiResponse<List<Notification>>> getByMachine(@PathVariable String machineId) {
-        return ResponseEntity.ok(ApiResponse.ok("OK", notificationService.findByMachine(machineId)));
+    @GetMapping("/user/{userId}")
+    public ResponseEntity<ApiResponse<List<Notification>>> getByUser(@PathVariable String userId) {
+        return ResponseEntity.ok(ApiResponse.ok("OK", notificationService.findByUser(userId)));
+    }
+
+    @GetMapping("/user/{userId}/unread-count")
+    public ResponseEntity<ApiResponse<Long>> getUnreadCount(@PathVariable String userId) {
+        return ResponseEntity.ok(ApiResponse.ok("OK", notificationService.countUnread(userId)));
+    }
+
+    @PatchMapping("/{id}/read")
+    public ResponseEntity<ApiResponse<Void>> markAsRead(@PathVariable Long id) {
+        notificationService.markAsRead(id);
+        return ResponseEntity.ok(ApiResponse.ok("Marked as read", null));
     }
 }

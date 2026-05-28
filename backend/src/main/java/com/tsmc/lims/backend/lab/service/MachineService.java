@@ -16,6 +16,8 @@ import com.tsmc.lims.backend.lab.repository.MachineRepository;
 import com.tsmc.lims.backend.lab.repository.RecipeRepository;
 import com.tsmc.lims.backend.lab.repository.WipTaskRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -68,6 +70,7 @@ public class MachineService {
         existing.forEach(t -> {
             t.setMachineId(machineId);
             t.setRecipeId(req.getRecipeId());
+            t.setExpKey(req.getExpKey());
             t.setStatus(WipStatus.PROCESSING);
         });
         wipTaskRepository.saveAll(existing);
@@ -93,7 +96,7 @@ public class MachineService {
 
         machineLogService.write(machineId, "OPS",
                 "Dispatched " + req.getWaferCodes().size() + " wafer(s) [" + String.join(", ", req.getWaferCodes()) + "]. Recipe: " + req.getRecipeId());
-        notificationService.emit(machineId, NotificationType.SUCCESS,
+        notificationService.emit(currentUserId(), NotificationType.SUCCESS,
                 "Dispatch Success", req.getWaferCodes().size() + " wafer(s) dispatched to " + machineId);
         return toResponse(saved);
     }
@@ -122,7 +125,7 @@ public class MachineService {
         List<String> codes = tasks.stream().map(WipTask::getWaferCode).toList();
         machineLogService.write(machineId, "OPS",
                 "Unloaded " + codes.size() + " wafer(s) [" + String.join(", ", codes) + "]. Status: COMPLETED");
-        notificationService.emit(machineId, NotificationType.SUCCESS,
+        notificationService.emit(currentUserId(), NotificationType.SUCCESS,
                 "Unload Success", tasks.size() + " wafer(s) completed on " + machineId);
         return toResponse(saved);
     }
@@ -148,7 +151,7 @@ public class MachineService {
             });
             machineLogService.write(machineId, "OPS",
                     "EMG Unload (REUSE): " + emgCodes.size() + " wafer(s) returned to WIP " + emgCodeStr);
-            notificationService.emit(machineId, NotificationType.INFO,
+            notificationService.emit(currentUserId(), NotificationType.INFO,
                     "Wafers Reused", emgCodes.size() + " wafer(s) returned to WIP from " + machineId);
         } else {
             tasks.forEach(t -> {
@@ -157,7 +160,7 @@ public class MachineService {
             });
             machineLogService.write(machineId, "OPS",
                     "EMG Unload (SCRAP): " + emgCodes.size() + " wafer(s) scrapped " + emgCodeStr);
-            notificationService.emit(machineId, NotificationType.WARNING,
+            notificationService.emit(currentUserId(), NotificationType.WARNING,
                     "Wafers Scrapped", emgCodes.size() + " wafer(s) scrapped from " + machineId);
         }
         wipTaskRepository.saveAll(tasks);
@@ -185,7 +188,7 @@ public class MachineService {
         Machine saved = machineRepository.save(machine);
 
         machineLogService.write(machineId, "ALARM", "Simulated fault triggered: ERR_SIMULATED_FAULT");
-        notificationService.emit(machineId, NotificationType.ERROR,
+        notificationService.emit(currentUserId(), NotificationType.ERROR,
                 "🚨 System Alert", machineId + " reported a simulated fault.");
         return toResponse(saved);
     }
@@ -208,7 +211,7 @@ public class MachineService {
         Machine saved = machineRepository.save(machine);
 
         machineLogService.write(machineId, "SYS", "Alarm resolved. Machine back online");
-        notificationService.emit(machineId, NotificationType.SUCCESS,
+        notificationService.emit(currentUserId(), NotificationType.SUCCESS,
                 "Alarm Resolved", machineId + " is back online.");
         return toResponse(saved);
     }
@@ -229,7 +232,7 @@ public class MachineService {
         Machine saved = machineRepository.save(machine);
 
         machineLogService.write(machineId, "MAINT", "Machine taken offline for maintenance");
-        notificationService.emit(machineId, NotificationType.INFO,
+        notificationService.emit(currentUserId(), NotificationType.INFO,
                 "Machine Offline", machineId + " is now under Maintenance.");
         return toResponse(saved);
     }
@@ -252,7 +255,7 @@ public class MachineService {
         Machine saved = machineRepository.save(machine);
 
         machineLogService.write(machineId, "MAINT", "Maintenance complete. Machine set online");
-        notificationService.emit(machineId, NotificationType.SUCCESS,
+        notificationService.emit(currentUserId(), NotificationType.SUCCESS,
                 "Machine Online", machineId + " resumed processing.");
         return toResponse(saved);
     }
@@ -280,7 +283,7 @@ public class MachineService {
         recipeRepository.save(new Recipe(recipeName, recipeName, machine));
 
         machineLogService.write(machineId, "CFG", "Recipe added: " + recipeName);
-        notificationService.emit(machineId, NotificationType.SUCCESS,
+        notificationService.emit(currentUserId(), NotificationType.SUCCESS,
                 "Recipe Added", "Recipe '" + recipeName + "' added to " + machineId);
         return getRecipes(machineId);
     }
@@ -301,6 +304,11 @@ public class MachineService {
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────
+
+    private String currentUserId() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        return (auth != null) ? auth.getName() : null;
+    }
 
     private Machine getMachine(String machineId) {
         return machineRepository.findById(machineId)

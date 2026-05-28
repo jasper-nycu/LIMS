@@ -322,7 +322,7 @@ export const LabOperationsView: React.FC<LabOperationsViewProps> = ({ language, 
                         />
                     </td>
                     <td className="px-6 py-4 font-mono font-bold text-slate-700">{w.id}</td>
-                    <td className="px-6 py-4 text-xs text-slate-500">{ui[w.expKey as keyof typeof ui]}</td>
+                    <td className="px-6 py-4 text-xs text-slate-500">{ui[w.expKey as keyof typeof ui] ?? w.expKey ?? '—'}</td>
                     <td className="px-6 py-4">
                       <span className={`px-2 py-1 rounded text-[10px] font-bold ${
                         w.priority === 'CRITICAL' ? 'bg-red-50 text-red-600' :

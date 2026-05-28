@@ -15,30 +15,34 @@ public class Notification {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "notification_id")
-    private Long notificationId;
+    @Column(name = "notif_id")
+    private Long notifId;
 
-    @Column(name = "machine_id")
-    private String machineId;
+    @Column(name = "user_id")
+    private String userId;
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "type", nullable = false)
-    private NotificationType type;
-
-    @Column(name = "title", nullable = false)
+    @Column(name = "title", nullable = false, length = 20)
     private String title;
 
-    @Column(name = "description")
-    private String description;
+    @Column(name = "message")
+    private String message;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "type")
+    private NotificationType type;
+
+    @Column(name = "is_read")
+    private Boolean isRead = false;
 
     @Column(name = "created_at")
     private LocalDateTime createdAt = LocalDateTime.now();
 
-    public Notification(String machineId, NotificationType type, String title, String description) {
-        this.machineId = machineId;
+    public Notification(String userId, NotificationType type, String title, String message) {
+        this.userId = userId;
         this.type = type;
         this.title = title;
-        this.description = description;
+        this.message = message;
+        this.isRead = false;
         this.createdAt = LocalDateTime.now();
     }
 }

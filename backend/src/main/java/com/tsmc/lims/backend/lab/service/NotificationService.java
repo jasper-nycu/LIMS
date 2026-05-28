@@ -16,15 +16,27 @@ public class NotificationService {
     private final NotificationRepository notificationRepository;
 
     @Transactional
-    public Notification emit(String machineId, NotificationType type, String title, String description) {
-        return notificationRepository.save(new Notification(machineId, type, title, description));
+    public Notification emit(String userId, NotificationType type, String title, String message) {
+        return notificationRepository.save(new Notification(userId, type, title, message));
+    }
+
+    @Transactional
+    public void markAsRead(Long notifId) {
+        notificationRepository.findById(notifId).ifPresent(n -> {
+            n.setIsRead(true);
+            notificationRepository.save(n);
+        });
     }
 
     public List<Notification> findAll() {
         return notificationRepository.findAllByOrderByCreatedAtDesc();
     }
 
-    public List<Notification> findByMachine(String machineId) {
-        return notificationRepository.findByMachineIdOrderByCreatedAtDesc(machineId);
+    public List<Notification> findByUser(String userId) {
+        return notificationRepository.findByUserIdOrderByCreatedAtDesc(userId);
+    }
+
+    public long countUnread(String userId) {
+        return notificationRepository.countByUserIdAndIsRead(userId, false);
     }
 }
