@@ -1,4 +1,4 @@
-# LIMS Cloud-Native (實驗室資訊管理系統)
+# Cloud-Native LIMS (實驗室資訊管理系統)
 
 ![Version](https://img.shields.io/badge/version-1.0.0--dev-blue.svg)
 ![Architecture](https://img.shields.io/badge/Architecture-Cloud--Native_Monorepo-blueviolet.svg)
@@ -34,7 +34,12 @@ LIMS (Laboratory Information Management System) 是一個專為高科技廠區與實驗室設計
 
 ## 專案架構 (Project Structure)
 
-本專案採用 Monorepo 架構，將前端、後端與基礎設施配置集中管理，確保版本同步與部署一致性。
+本專案採用 Monorepo 架構，將前端、後端與基礎設施配置集中管理，確保版本同步與部署一致性。若需深入了解各模組的開發細節，請參閱子目錄下的專屬說明文件：
+
+* ? **[前端詳細文件 (Frontend README)](./frontend/README.md)**
+* ? **[後端詳細文件 (Backend README)](./backend/README.md)**
+* ? **[系統實體關聯圖 (Database ERD)](./docs/erd/lims-erd.md)**
+
 ```text
 LIMS/
 ├── frontend/                 # React 前端專案目錄
