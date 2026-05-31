@@ -1,5 +1,5 @@
 // src/views/__tests__/AuthView.test.tsx
-import { render, screen, fireEvent, cleanup, act, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, cleanup, act } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { AuthView } from '../AuthView';
 

@@ -10,6 +10,11 @@ describe('Sidebar - Enterprise Layout Router Testing Suite', () => {
     activeView: 'view-factory-request',
     onViewChange: vi.fn(),
     language: 'en' as const,
+    user: {
+      empId: 'TS-TEST',
+      name: 'Test User',
+      role: 'ROLE_SYSADMIN'
+    }
   };
 
   it('renders correct labels in English', () => {

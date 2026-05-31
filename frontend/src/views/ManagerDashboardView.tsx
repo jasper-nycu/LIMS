@@ -1,5 +1,7 @@
 // src/views/ManagerDashboardView.tsx
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import api from '../api/axiosInstance';
+import { type UserProfile } from '../components/layout/Header';
 
 // --- Interfaces ---
 export interface ManagerRequest {
@@ -13,13 +15,30 @@ export interface ManagerRequest {
   submitTime: string;
 }
 
+const priorityRank: Record<ManagerRequest['priority'], number> = {
+  CRITICAL: 0,
+  URGENT: 1,
+  NORMAL: 2,
+};
+
+const sortManagerQueue = (requests: ManagerRequest[]) =>
+  requests
+    .map((request, index) => ({ request, index }))
+    .sort((a, b) =>
+      priorityRank[a.request.priority] - priorityRank[b.request.priority]
+      || a.request.submitTime.localeCompare(b.request.submitTime)
+      || a.index - b.index
+    )
+    .map(({ request }) => request);
+
 interface ManagerDashboardProps {
   language: 'en' | 'tw';
   onNotify: (titleKey: string | null, fallbackTitle: string, desc: string, type: 'info' | 'success' | 'error' | 'warning') => void;
   initialRequests?: ManagerRequest[]; // Support dynamic data injection
+  user?: UserProfile | null;
 }
 
-export const ManagerDashboardView: React.FC<ManagerDashboardProps> = ({ language, onNotify, initialRequests = [] }) => {
+export const ManagerDashboardView: React.FC<ManagerDashboardProps> = ({ language, onNotify, initialRequests = [], user }) => {
   const i18n = {
     en: {
       title: 'Approval Queue',
@@ -70,7 +89,7 @@ export const ManagerDashboardView: React.FC<ManagerDashboardProps> = ({ language
   const ui = i18n[language];
 
   // --- States ---
-  const [pendingRequests, setRequests] = useState<ManagerRequest[]>(initialRequests);
+  const [pendingRequests, setRequests] = useState<ManagerRequest[]>(sortManagerQueue(initialRequests));
 
   // --- UI States ---
   const [msgModal, setMsgModal] = useState<{ isOpen: boolean; content: string }>({ isOpen: false, content: '' });
@@ -78,14 +97,39 @@ export const ManagerDashboardView: React.FC<ManagerDashboardProps> = ({ language
   const [rejectReason, setRejReason] = useState('');
   const [removingId, setRemovingId] = useState<string | null>(null);
 
+  useEffect(() => {
+    if (!user?.empId && initialRequests.length === 0) return;
+    if (initialRequests.length > 0) return;
+    api.get('/manager/requests/pending')
+      .then(res => setRequests(sortManagerQueue(res.data)))
+      .catch(() => undefined);
+  }, [user?.empId, initialRequests.length]);
+
   // --- Handlers ---
   const handleApprove = (id: string) => {
     setRemovingId(id);
     // wait for 400ms to allow the fade-out animation before removing from state
     setTimeout(() => {
-      setRequests(prev => prev.filter(r => r.id !== id));
-      setRemovingId(null);
-      onNotify(null, ui.notifApprove, `${id} has been moved to Lab WIP queue.`, 'success');
+      const finish = () => {
+        setRequests(prev => prev.filter(r => r.id !== id));
+        setRemovingId(null);
+        if (!user?.empId) {
+          onNotify(null, ui.notifApprove, `${id} has been moved to Lab WIP queue.`, 'success');
+        }
+        // Notifications are now handled purely by session-based local state
+      };
+
+      if (!user?.empId) {
+        finish();
+        return;
+      }
+
+      api.post(`/manager/requests/${id}/approve`, { approverId: user.empId })
+        .then(finish)
+        .catch(() => {
+          setRemovingId(null);
+          onNotify(null, 'Approval Failed', `${id} could not be approved.`, 'error');
+        });
     }, 400);
   };
 
@@ -96,10 +140,26 @@ export const ManagerDashboardView: React.FC<ManagerDashboardProps> = ({ language
     setRejModal({ isOpen: false, targetId: null });
 
     setTimeout(() => {
-      setRequests(prev => prev.filter(r => r.id !== targetId));
-      setRemovingId(null);
-      onNotify(null, ui.notifReject, `${targetId} rejected: ${rejectReason}`, 'error');
-      setRejReason('');
+      const finish = () => {
+        setRequests(prev => prev.filter(r => r.id !== targetId));
+        setRemovingId(null);
+        if (!user?.empId) {
+          onNotify(null, ui.notifReject, `${targetId} rejected: ${rejectReason}`, 'error');
+        }
+        setRejReason('');
+      };
+
+      if (!user?.empId) {
+        finish();
+        return;
+      }
+
+      api.post(`/manager/requests/${targetId}/reject`, { approverId: user.empId, rejectReason })
+        .then(finish)
+        .catch(() => {
+          setRemovingId(null);
+          onNotify(null, 'Rejection Failed', `${targetId} could not be rejected.`, 'error');
+        });
     }, 400);
   };
 

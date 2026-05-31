@@ -58,7 +58,7 @@ describe('Header - Enterprise Global Navigation Testing Suite', () => {
     const { container } = render(
       <Header
         {...defaultProps}
-        user={{ name: 'John Doe', role: 'ROLE_PUBLIC', avatarBase64 }}
+        user={{ empId: 'TS-0001', name: 'John Doe', role: 'ROLE_PUBLIC', avatarBase64 }}
       />
     );
 

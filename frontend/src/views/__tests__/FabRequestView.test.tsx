@@ -1,6 +1,17 @@
 // src/views/__tests__/FabRequestView.test.tsx
 import { render, screen, fireEvent, within } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+
+// Mock API requests to prevent pending promises and external network failures
+vi.mock('../../api/axiosInstance', () => ({
+  default: {
+    get: vi.fn(() => Promise.resolve({ data: [] })),
+    put: vi.fn(() => Promise.resolve({ data: {} })),
+    post: vi.fn(() => Promise.resolve({ data: { id: 'REQ-1234', experiments: ['High-Temp Bake'], waferCount: 1, status: 'PENDING', priority: 'NORMAL' } })),
+    delete: vi.fn(() => Promise.resolve({ data: {} }))
+  }
+}));
+
 import { FabRequestView } from '../FabRequestView';
 
 describe('FabRequestView - Enterprise Order Provisioning Testing Suite', () => {

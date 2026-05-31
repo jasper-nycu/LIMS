@@ -1,5 +1,6 @@
 // src/components/layout/Sidebar.tsx
 import React from 'react';
+import { type UserProfile } from './Header';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -7,6 +8,7 @@ interface SidebarProps {
   activeView: string;
   onViewChange: (view: string) => void;
   language: 'en' | 'tw';
+  user: UserProfile;
 }
 
 // Translations dictionary for sidebar labels
@@ -32,15 +34,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onToggle, 
   activeView, 
   onViewChange, 
-  language 
+  language,
+  user
 }) => {
   const navItems = [
-    { id: 'view-factory-request', icon: 'description' },
-    { id: 'view-lab-operations', icon: 'biotech' },
-    { id: 'view-manager-dashboard', icon: 'dashboard' },
-    { id: 'view-capacity-analytics', icon: 'insights' },
+    { id: 'view-factory-request', icon: 'description', roles: ['ROLE_SYSADMIN', 'ROLE_FAB_USER'] },
+    { id: 'view-lab-operations', icon: 'biotech', roles: ['ROLE_SYSADMIN', 'ROLE_LAB_MANAGER', 'ROLE_LAB_OPERATOR'] },
+    { id: 'view-manager-dashboard', icon: 'dashboard', roles: ['ROLE_SYSADMIN', 'ROLE_LAB_MANAGER', 'ROLE_MACHINE_OWNER'] },
+    { id: 'view-capacity-analytics', icon: 'insights', roles: ['ROLE_SYSADMIN', 'ROLE_LAB_MANAGER', 'ROLE_MACHINE_OWNER'] },
     { id: 'view-my-profile', icon: 'account_circle' }
-  ];
+  ].filter(item => !item.roles || item.roles.includes(user.role));
 
   return (
     <>
