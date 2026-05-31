@@ -24,8 +24,11 @@ export interface WipWafer {
 
 interface LabOperationsViewProps {
   language: 'en' | 'tw';
-  onNotify: (titleKey: string | null, fallbackTitle: string, desc: string, type: 'info' | 'success' | 'error' | 'warning', target?: 'owners' | 'lab') => void;
+  onNotify: (titleKey: string | null, fallbackTitle: string, desc: string, type: 'info' | 'success' | 'error' | 'warning') => void;
+  machines?: Record<string, MachineState>;
+  updateMachine?: (id: string, patch: Partial<MachineState>) => void;
   initialWips?: WipWafer[];
+  user?: { empId: string; name: string; role: string; avatarBase64?: string; } | null;
 }
 
 // Deterministic color map for owner initials
@@ -49,7 +52,28 @@ function toMachineState(dto: MachineDTO): MachineState {
   };
 }
 
-export const LabOperationsView: React.FC<LabOperationsViewProps> = ({ language, onNotify, initialWips = [] }) => {
+const defaultMachineState: Record<string, MachineState> = {
+  'SEM-01': { id: 'SEM-01', state: 'PROCESSING', loaded: Array.from({length: 18}, (_, i) => `W-10${(i+1).toString().padStart(2, '0')}`), cap: 25, expKey: 'exp_sem', name: 'Surface Scan (SEM)', error: null, currentUtil: 72, owners: [{ initials: 'MW', color: 'bg-slate-600' }, { initials: 'JS', color: 'bg-blue-400' }] },
+  'BAKE-OVEN-01': { id: 'BAKE-OVEN-01', state: 'IDLE', loaded: [], cap: 50, expKey: 'exp_bake', name: 'High-Temp Bake', error: null, currentUtil: 0, owners: [{ initials: 'SC', color: 'bg-accent-sky' }] },
+  'TEM-01': { id: 'TEM-01', state: 'IDLE', loaded: [], cap: 10, expKey: 'exp_deep', name: 'Deep Analysis', error: null, currentUtil: 0, owners: [{ initials: 'RK', color: 'bg-red-500' }] },
+  'FIB-01': { id: 'FIB-01', state: 'IDLE', loaded: [], cap: 1, expKey: 'exp_fib', name: 'Focused Ion Beam', error: null, currentUtil: 0, owners: [{ initials: 'CH', color: 'bg-indigo-500' }] },
+  'E-TEST-02': { id: 'E-TEST-02', state: 'PROCESSING', loaded: Array.from({length: 42}, (_, i) => `W-20${(i+1).toString().padStart(2, '0')}`), cap: 50, expKey: 'exp_etest', name: 'Electrical Test', error: null, currentUtil: 84, owners: [{ initials: 'AS', color: 'bg-emerald-600' }] },
+  'XRD-01': { id: 'XRD-01', state: 'IDLE', loaded: [], cap: 25, expKey: 'exp_xrd', name: 'X-Ray Diffraction', error: null, currentUtil: 0, owners: [{ initials: 'TH', color: 'bg-amber-500' }] }
+};
+
+export const LabOperationsView: React.FC<LabOperationsViewProps> = ({ language, onNotify, machines = defaultMachineState, updateMachine, initialWips = [], user }) => {
+  const [localMachines, setLocalMachines] = useState<Record<string, MachineState>>(machines);
+  const sharedMachines = updateMachine ? machines : localMachines;
+  const updateMachineLocal = (id: string, patch: Partial<MachineState>) => {
+    setLocalMachines(prev => {
+      const m = prev[id] ?? defaultMachineState[id] ?? { id, state: 'IDLE', loaded: [], cap: 1, expKey: '', name: id, error: null, currentUtil: 0, owners: [], loadedCount: 0, utilHistory: Array(7).fill(0) } as MachineState;
+      const newUtil = patch.currentUtil ?? m.currentUtil;
+      const oldHist = (m as any).utilHistory ?? Array(7).fill(m.currentUtil ?? 0);
+      const newHist = (patch.currentUtil !== undefined && patch.currentUtil !== null) ? [newUtil, ...oldHist].slice(0,7) : oldHist;
+      return { ...prev, [id]: { ...m, ...patch, currentUtil: newUtil, utilHistory: newHist } };
+    });
+  };
+  const applyUpdate = updateMachine ?? updateMachineLocal;
   const i18n = {
     en: {
       wip: 'Pending Wafers for Sorting (WIP)', dispatch: 'Dispatch to Machine',
@@ -178,11 +202,27 @@ export const LabOperationsView: React.FC<LabOperationsViewProps> = ({ language, 
     }
   };
 
+<<<<<<< HEAD
+=======
+
+  const [recipes, setRecipes] = useState<Record<string, string[]>>({
+    'SEM-01': ['SEM-Surface-Std', 'SEM-High-Res'], 'BAKE-OVEN-01': ['Bake-150C-4H', 'Bake-250C-2H'],
+    'TEM-01': ['TEM-Lattice-View'], 'FIB-01': ['FIB-Cross-Section', 'FIB-Circuit-Edit'],
+    'E-TEST-02': ['E-TEST-Parametric', 'E-TEST-Yield'], 'XRD-01': ['XRD-Crystal-Scan']
+  });
+
+  const [targetMachId, setTargetMachId] = useState('BAKE-OVEN-01');
+
+>>>>>>> origin/main
   // --- Handlers ---
   const handleDispatch = async () => {
     if (selectedWipIds.size === 0) return setWarning({ isOpen: true, title: 'Selection Error', msg: ui.warn_select });
+<<<<<<< HEAD
     const mach = machines[targetMachId];
     if (!mach) return;
+=======
+    const mach = sharedMachines[targetMachId];
+>>>>>>> origin/main
     const selectedList = wips.filter(w => selectedWipIds.has(w.id));
 
     if (selectedList.some(w => w.expKey !== mach.expKey)) {
@@ -193,6 +233,7 @@ export const LabOperationsView: React.FC<LabOperationsViewProps> = ({ language, 
     }
     if (mach.state === 'PROCESSING') return setWarning({ isOpen: true, title: 'Machine Busy', msg: 'Machine is currently processing.' });
 
+<<<<<<< HEAD
     try {
       const dto = await machineApi.dispatch(targetMachId, {
         waferCodes: Array.from(selectedWipIds),
@@ -207,12 +248,21 @@ export const LabOperationsView: React.FC<LabOperationsViewProps> = ({ language, 
     } catch (e) {
       setWarning({ isOpen: true, title: 'Dispatch Error', msg: (e as Error).message });
     }
+=======
+    if (mach.loaded.length + selectedWipIds.size > mach.cap) return setWarning({ isOpen: true, title: 'Capacity Error', msg: 'Exceeded machine capacity.' });
+    
+    applyUpdate(targetMachId, { state: 'PROCESSING', loaded: [...mach.loaded, ...Array.from(selectedWipIds)], currentUtil: Math.round(((mach.loaded.length + selectedWipIds.size) / mach.cap) * 100) });
+    setWips(wips.filter(w => !selectedWipIds.has(w.id)));
+    setSelectedWips(new Set());
+    onNotify(null, 'Dispatch Success', `${selectedWipIds.size} wafers sent to ${targetMachId}`, 'success');
+>>>>>>> origin/main
   };
 
   const handleEMGAction = async (action: 'SCRAP' | 'REUSE') => {
     const id = emgModal.machId; if (!id) return;
-    const mach = machines[id];
+    const mach = sharedMachines[id];
 
+<<<<<<< HEAD
     try {
       const dto = await machineApi.emgUnload(id, action);
       setMachines(prev => ({ ...prev, [id]: toMachineState(dto) }));
@@ -222,6 +272,21 @@ export const LabOperationsView: React.FC<LabOperationsViewProps> = ({ language, 
         setWips(prev => [...returned, ...prev]);
         onNotify(null, language === 'en' ? 'Wafers Reused' : '晶圓重用', `${mach.loaded.length} ${language === 'en' ? 'wafers returned to WIP.' : '片晶圓已回到 WIP。'}`, 'info');
       } else {
+=======
+    if (action === 'REUSE') {
+        // Correct reuse logic: Re-insert into WIP with the original machine expKey
+        const returned: WipWafer[] = mach.loaded.map(wId => ({ 
+            id: wId, 
+            expKey: mach.expKey, 
+            priority: 'NORMAL' 
+        }));
+        setWips([...returned, ...wips]);
+        applyUpdate(id, { state: 'IDLE', loaded: [], currentUtil: 0 });
+        onNotify(null, language === 'en' ? 'Wafers Reused' : '晶圓重用', `${mach.loaded.length} ${language === 'en' ? 'wafers returned to WIP.' : '片晶圓已回到 WIP。'}`, 'info');
+    } else {
+        // Correct Scrap Logic: Return to IDLE directly without fault code per instructions
+        applyUpdate(id, { state: 'IDLE', loaded: [], error: null, currentUtil: 0 });
+>>>>>>> origin/main
         onNotify(null, language === 'en' ? 'Wafers Scrapped' : '晶圓作廢', `${mach.loaded.length} ${language === 'en' ? 'wafers discarded.' : '片晶圓已根據政策作廢。'}`, 'warning');
       }
     } catch (e) {
@@ -230,6 +295,7 @@ export const LabOperationsView: React.FC<LabOperationsViewProps> = ({ language, 
     setEmgModal({ isOpen: false, machId: null });
   };
 
+<<<<<<< HEAD
   const toggleAlarm = async (id: string) => {
     const m = machines[id];
     try {
@@ -244,6 +310,18 @@ export const LabOperationsView: React.FC<LabOperationsViewProps> = ({ language, 
       }
     } catch (e) {
       setWarning({ isOpen: true, title: 'Error', msg: (e as Error).message });
+=======
+  const toggleAlarm = (id: string) => {
+    const m = sharedMachines[id];
+    if (m.state === 'ALARM') {
+        const next = m.loaded.length > 0 ? 'PROCESSING' : 'IDLE';
+        applyUpdate(id, { state: next, error: null, currentUtil: m.loaded.length > 0 ? Math.round((m.loaded.length / m.cap) * 100) : 0 });
+        onNotify(null, 'Alarm Resolved', `${id} is back online.`, 'success');
+    } else {
+        // Requirement: Keep loaded wafers during alarm
+        applyUpdate(id, { state: 'ALARM', loaded: [...m.loaded], error: 'ERR_SIMULATED_FAULT', currentUtil: 0 });
+        onNotify(null, language === 'en' ? '🚨 System Alert' : '🚨 系統警報', `${id} ${language === 'en' ? 'reported a simulated fault.' : '觸發模擬故障。'}`, 'error');
+>>>>>>> origin/main
     }
   };
 
@@ -256,8 +334,14 @@ export const LabOperationsView: React.FC<LabOperationsViewProps> = ({ language, 
     }
   };
 
+<<<<<<< HEAD
   const toggleMaint = async (id: string) => {
     const m = machines[id];
+=======
+  const toggleMaint = (id: string) => {
+    const m = sharedMachines[id];
+    // Strict FSM: Processing machines cannot enter maintenance
+>>>>>>> origin/main
     if (m.state === 'PROCESSING') {
       setWarning({ isOpen: true, title: 'Action Denied', msg: ui.err_maint });
       return;
@@ -272,6 +356,7 @@ export const LabOperationsView: React.FC<LabOperationsViewProps> = ({ language, 
     }
   };
 
+<<<<<<< HEAD
   const openLogModal = async (machId: string) => {
     setLogModal({ isOpen: true, machId, entries: [] });
     try {
@@ -280,6 +365,19 @@ export const LabOperationsView: React.FC<LabOperationsViewProps> = ({ language, 
     } catch {
       // show empty log
     }
+=======
+    const isMaint = m.state === 'MAINTENANCE';
+    const nextState = isMaint ? (m.loaded.length > 0 ? 'PROCESSING' : 'IDLE') : 'MAINTENANCE';
+    
+    applyUpdate(id, { state: nextState, error: null, currentUtil: nextState === 'MAINTENANCE' ? 0 : m.currentUtil });
+
+    onNotify(
+        null, 
+        isMaint ? 'Machine Online' : 'Machine Offline', 
+        `${id} is now ${isMaint ? 'Online' : 'under Maintenance'}.`, 
+        isMaint ? 'success' : 'info'
+    );
+>>>>>>> origin/main
   };
 
   return (
@@ -358,9 +456,9 @@ export const LabOperationsView: React.FC<LabOperationsViewProps> = ({ language, 
                   : `已選擇 ${selectedWipIds.size} 片晶圓`}
               </div>
             </div>
-            <div className="space-y-1"><label htmlFor="mach-op-sel" className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{ui.target}</label>
+              <div className="space-y-1"><label htmlFor="mach-op-sel" className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{ui.target}</label>
               <select id="mach-op-sel" className="w-full rounded-xl border-slate-200 text-sm font-semibold text-slate-700 focus:ring-corporate-blue cursor-pointer" value={targetMachId} onChange={e => setTargetMachId(e.target.value)}>
-                {Object.values(machines).map(m => <option key={m.id} value={m.id} disabled={m.state !== 'IDLE'}>{m.id} ({m.state === 'IDLE' ? `Idle - ${m.cap - m.loaded.length} slots` : m.state})</option>)}
+                {Object.values(sharedMachines).map(m => <option key={m.id} value={m.id} disabled={m.state !== 'IDLE'}>{m.id} ({m.state === 'IDLE' ? `Idle - ${m.cap - m.loaded.length} slots` : m.state})</option>)}
               </select>
             </div>
             <div className="space-y-1"><label htmlFor="rec-op-sel" className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{ui.recipe}</label>
@@ -369,12 +467,24 @@ export const LabOperationsView: React.FC<LabOperationsViewProps> = ({ language, 
               </select>
             </div>
           </div>
+<<<<<<< HEAD
           <button
             onClick={handleDispatch}
             className="w-full bg-corporate-blue text-white py-4 rounded-xl font-bold hover:bg-blue-700 shadow-lg shadow-blue-100 flex justify-center items-center gap-2 active:scale-95 transition-all cursor-pointer"
           >
             <span className="material-symbols-outlined">bolt</span> {ui.execute}
           </button>
+=======
+          {/* RBAC Compliance: Enforce distinct split between administrative supervision and shop-floor execution */}
+          {user?.role !== 'ROLE_LAB_MANAGER' && (
+            <button 
+              onClick={handleDispatch} 
+              className="w-full bg-corporate-blue text-white py-4 rounded-xl font-bold hover:bg-blue-700 shadow-lg shadow-blue-100 flex justify-center items-center gap-2 active:scale-95 transition-all cursor-pointer"
+            >
+              <span className="material-symbols-outlined">bolt</span> {ui.execute}
+            </button>
+          )}
+>>>>>>> origin/main
         </div>
       </div>
 
@@ -391,7 +501,7 @@ export const LabOperationsView: React.FC<LabOperationsViewProps> = ({ language, 
           </div></div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {Object.values(machines).map(m => (
+          {Object.values(sharedMachines).map(m => (
             <div key={m.id} className={`bg-white rounded-2xl p-5 border-2 relative overflow-hidden flex flex-col h-[380px] transition-all ${
                 m.state === 'PROCESSING' ? 'border-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.15)]' :
                 m.state === 'ALARM' ? 'border-red-300 bg-red-50/20' :
@@ -445,6 +555,7 @@ export const LabOperationsView: React.FC<LabOperationsViewProps> = ({ language, 
                             {ui.btn_view_logs}
                             </button>
                           {m.state === 'PROCESSING' && (
+<<<<<<< HEAD
                             <button
                               onClick={async () => {
                                 try {
@@ -455,6 +566,13 @@ export const LabOperationsView: React.FC<LabOperationsViewProps> = ({ language, 
                                   setWarning({ isOpen: true, title: 'Unload Error', msg: (e as Error).message });
                                 }
                               }}
+=======
+                            <button 
+                              onClick={() => {
+                                applyUpdate(m.id, { state: 'IDLE', loaded: [], currentUtil: 0, error: null });
+                                onNotify(null, language === 'en' ? 'Unload Success' : '下貨成功', `${m.id} ${language === 'en' ? 'wafers collected.' : '晶圓已卸載。'}`, 'success');
+                              }} 
+>>>>>>> origin/main
                               className="py-2 text-[10px] font-bold rounded-lg border bg-emerald-50 text-emerald-600 border-emerald-200 flex-1 cursor-pointer hover:bg-emerald-100 transition-colors"
                             >
                               {ui.unload}
@@ -585,7 +703,7 @@ export const LabOperationsView: React.FC<LabOperationsViewProps> = ({ language, 
            <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden">
             <div className="p-6 border-b border-slate-100 flex justify-between items-center"><h3 className="font-bold text-lg flex items-center gap-2"><span className="material-symbols-outlined">settings</span> {ui.modal_mach_title}</h3><button onClick={() => setShowMachModal(false)} className="text-slate-400 cursor-pointer"><span className="material-symbols-outlined">close</span></button></div>
             <div className="p-6 space-y-3 max-h-96 overflow-y-auto custom-scrollbar">
-              {Object.values(machines).map(m => (
+              {Object.values(sharedMachines).map(m => (
                 <div key={m.id} className="p-4 bg-slate-50 border border-slate-200 rounded-xl flex justify-between items-center">
                   <div><h4 className="font-bold text-sm text-slate-800">{m.id}</h4><span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase shadow-sm ${getBadgeStyle(m.state)}`}>{m.state}</span></div>
                   <button onClick={() => toggleMaint(m.id)} className="w-9 h-9 flex items-center justify-center bg-white border border-slate-200 rounded-lg text-slate-500 hover:bg-slate-100 hover:text-corporate-blue shadow-sm transition-all cursor-pointer group" title="Toggle Maintenance">

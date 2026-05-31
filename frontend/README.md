@@ -1,79 +1,79 @@
-# LIMS «eºİ¬[ºc (Frontend Architecture)
+# LIMS å‰ç«¯æ¶æ§‹ (Frontend Architecture)
 
-¥»«eºİ±M®×¬O LIMS ¶³­ì¥Í¨t²Îªº¨Ï¥ÎªÌ¤¶­±¡A±Ä¥Î React 18 + Vite + TypeScript ºc«Ø¡A¨Ã¨Ï¥Î Tailwind CSS v4 ¶i¦æ¼Ë¦¡¶}µo¡C§Ú­Ì¿í´`¡uÃöª`ÂI¤ÀÂ÷ (Separation of Concerns)¡v­ì«h¡A±N¤¶­±©î¤À¬°§G§½®Ø¬[¡B­¶­±µø¹Ï»P­ì¤l²Õ¥ó¡C
+æœ¬å‰ç«¯å°ˆæ¡ˆæ˜¯ LIMS é›²åŸç”Ÿç³»çµ±çš„ä½¿ç”¨è€…ä»‹é¢ï¼Œæ¡ç”¨ React 18 + Vite + TypeScript æ§‹å»ºï¼Œä¸¦ä½¿ç”¨ Tailwind CSS v4 é€²è¡Œæ¨£å¼é–‹ç™¼ã€‚æˆ‘å€‘éµå¾ªã€Œé—œæ³¨é»åˆ†é›¢ (Separation of Concerns)ã€åŸå‰‡ï¼Œå°‡ä»‹é¢æ‹†åˆ†ç‚ºä½ˆå±€æ¡†æ¶ã€é é¢è¦–åœ–èˆ‡åŸå­çµ„ä»¶ã€‚
 
-## ±M®×¬[ºc (Project Structure)
+## å°ˆæ¡ˆæ¶æ§‹ (Project Structure)
 
 ```text
 frontend/
-¢u¢w¢w src/
-¢x   ¢u¢w¢w components/layout/            # ¥ş°ì§G§½­«½Æ¨Ï¥Î²Õ¥ó
-¢x   ¢x   ¢u¢w¢w __tests__/                # §G§½²Õ¥óªº³æ¤¸´ú¸Õ (Header, Sidebar ´ú¸Õ)
-¢x   ¢x   ¢u¢w¢w Header.tsx                # ³»³¡¾ÉÄı¦C (»y¨t¤Á´«¡B³qª¾¡B¨Ï¥ÎªÌ¸ê°T)
-¢x   ¢x   ¢|¢w¢w Sidebar.tsx               # °¼Ãä¾ÉÄı¿ï³æ (­t³dµø¹Ï¾ÉÄı»P RWD ÁY©ñ)
-¢x   ¢x
-¢x   ¢u¢w¢w views/                        # ­¶­±µø¹Ï
-¢x   ¢x   ¢u¢w¢w __tests__/                # ­¶­±ÅŞ¿è³æ¤¸´ú¸Õ (Auth, FabRequest, LabOps µ¥´ú¸Õ)
-¢x   ¢x   ¢u¢w¢w AuthView.tsx              # µn¤J»Pµù¥U­¶­±
-¢x   ¢x   ¢u¢w¢w FabRequestView.tsx        # ¼t°Ï«Ø¥ß©e°U³æ
-¢x   ¢x   ¢u¢w¢w LabOperationsView.tsx     # ¹êÅç«Ç¤H­û¾Ş§@
-¢x   ¢x   ¢u¢w¢w ManagerDashboardView.tsx  # ¹êÅç«Ç¥DºŞÃ±®Ö
-¢x   ¢x   ¢u¢w¢w CapacityAnalyticsView.tsx # ¾÷¥x¤ÀªR¹Ïªí
-¢x   ¢x   ¢|¢w¢w MyProfileView.tsx         # ­Ó¤H±b¸¹³]©w
-¢x   ¢x
-¢x   ¢u¢w¢w test/                         # ´ú¸ÕÀô¹Ò°t¸m
-¢x   ¢x   ¢|¢w¢w setup.ts                  # Vitest Àô¹Ò³]©w (¤Ş¤J jest-dom ÂX¥R)
-¢x   ¢x
-¢x   ¢u¢w¢w App.tsx                       # À³¥Îµ{¦¡®Ú²Õ¥ó (­t³d¥ş°ìª¬ºAºŞ²z»Pµø¹Ï¸õÂàÅŞ¿è)
-¢x   ¢u¢w¢w index.css                     # ¥ş°ì¼Ë¦¡³]©w»P Tailwind CSS v4 ¥DÃD©w¸q
-¢x   ¢|¢w¢w main.tsx                      # µ{¦¡¶i¤JÂI (­t³d±N React ±¾¸ü¦Ü HTML DOM)
-¢x
-¢u¢w¢w .gitignore            # ³]©w Git ª©±±À³©¿²¤ªº«eºİÀÉ®× (¦p node_modules)
-¢u¢w¢w eslint.config.js      # ESLint µ{¦¡½X­·®æ»P»yªkÀË¬d¤u¨ãªº³]©wÀÉ
-¢u¢w¢w index.html            # ºô­¶ªº Metadata ¥H¤Î React ªº±¾¸üÂI
-¢u¢w¢w package-lock.json     # Âê©w·í«e©Ò¦³¨Ì¿à®M¥óªººë½Tª©¥»¸¹¡A½T«O¹Î¶¤Àô¹Ò¤@­P
-¢u¢w¢w package.json          # °O¿ı«eºİ±M®×¸ê°T¡B¨Ì¿à®M¥ó²M³æ»P¦Û­qªº npm °õ¦æ¸}¥»
-¢u¢w¢w postcss.config.js     # Åª¨ú Tailwind CSS 
-¢u¢w¢w README.md
-¢u¢w¢w tsconfig.app.json     # °w¹ï React À³¥Îµ{¦¡ªº TypeScript ½sÄ¶³]©w
-¢u¢w¢w tsconfig.json         # TypeScript °òÂ¦³]©wÀÉ (Ä~©Ó¨Ã¾ã¦X¨ä¥L tsconfig)
-¢u¢w¢w tsconfig.node.json    # °w¹ï Node.js Àô¹Ò (¦p vite.config.ts) ªº TypeScript ³]©w
-¢|¢w¢w vite.config.ts        # Vite ¥´¥]¤u¨ãªº®Ö¤ß³]©wÀÉ (¨Ò¦p³]©w proxy ©Î plugins)
+â”œâ”€â”€ src/
+â”‚   â”œâ”€â”€ components/layout/            # å…¨åŸŸä½ˆå±€é‡è¤‡ä½¿ç”¨çµ„ä»¶
+â”‚   â”‚   â”œâ”€â”€ __tests__/                # ä½ˆå±€çµ„ä»¶çš„å–®å…ƒæ¸¬è©¦ (Header, Sidebar æ¸¬è©¦)
+â”‚   â”‚   â”œâ”€â”€ Header.tsx                # é ‚éƒ¨å°è¦½åˆ— (èªç³»åˆ‡æ›ã€é€šçŸ¥ã€ä½¿ç”¨è€…è³‡è¨Š)
+â”‚   â”‚   â””â”€â”€ Sidebar.tsx               # å´é‚Šå°è¦½é¸å–® (è² è²¬è¦–åœ–å°è¦½èˆ‡ RWD ç¸®æ”¾)
+â”‚   â”‚
+â”‚   â”œâ”€â”€ views/                        # é é¢è¦–åœ–
+â”‚   â”‚   â”œâ”€â”€ __tests__/                # é é¢é‚è¼¯å–®å…ƒæ¸¬è©¦ (Auth, FabRequest, LabOps ç­‰æ¸¬è©¦)
+â”‚   â”‚   â”œâ”€â”€ AuthView.tsx              # ç™»å…¥èˆ‡è¨»å†Šé é¢
+â”‚   â”‚   â”œâ”€â”€ FabRequestView.tsx        # å» å€å»ºç«‹å§”è¨—å–®
+â”‚   â”‚   â”œâ”€â”€ LabOperationsView.tsx     # å¯¦é©—å®¤äººå“¡æ“ä½œ
+â”‚   â”‚   â”œâ”€â”€ ManagerDashboardView.tsx  # å¯¦é©—å®¤ä¸»ç®¡ç°½æ ¸
+â”‚   â”‚   â”œâ”€â”€ CapacityAnalyticsView.tsx # æ©Ÿå°åˆ†æåœ–è¡¨
+â”‚   â”‚   â””â”€â”€ MyProfileView.tsx         # å€‹äººå¸³è™Ÿè¨­å®š
+â”‚   â”‚
+â”‚   â”œâ”€â”€ test/                         # æ¸¬è©¦ç’°å¢ƒé…ç½®
+â”‚   â”‚   â””â”€â”€ setup.ts                  # Vitest ç’°å¢ƒè¨­å®š (å¼•å…¥ jest-dom æ“´å……)
+â”‚   â”‚
+â”‚   â”œâ”€â”€ App.tsx                       # æ‡‰ç”¨ç¨‹å¼æ ¹çµ„ä»¶ (è² è²¬å…¨åŸŸç‹€æ…‹ç®¡ç†èˆ‡è¦–åœ–è·³è½‰é‚è¼¯)
+â”‚   â”œâ”€â”€ index.css                     # å…¨åŸŸæ¨£å¼è¨­å®šèˆ‡ Tailwind CSS v4 ä¸»é¡Œå®šç¾©
+â”‚   â””â”€â”€ main.tsx                      # ç¨‹å¼é€²å…¥é» (è² è²¬å°‡ React æ›è¼‰è‡³ HTML DOM)
+â”‚
+â”œâ”€â”€ .gitignore            # è¨­å®š Git ç‰ˆæ§æ‡‰å¿½ç•¥çš„å‰ç«¯æª”æ¡ˆ (å¦‚ node_modules)
+â”œâ”€â”€ eslint.config.js      # ESLint ç¨‹å¼ç¢¼é¢¨æ ¼èˆ‡èªæ³•æª¢æŸ¥å·¥å…·çš„è¨­å®šæª”
+â”œâ”€â”€ index.html            # ç¶²é çš„ Metadata ä»¥åŠ React çš„æ›è¼‰é»
+â”œâ”€â”€ package-lock.json     # é–å®šç•¶å‰æ‰€æœ‰ä¾è³´å¥—ä»¶çš„ç²¾ç¢ºç‰ˆæœ¬è™Ÿï¼Œç¢ºä¿åœ˜éšŠç’°å¢ƒä¸€è‡´
+â”œâ”€â”€ package.json          # è¨˜éŒ„å‰ç«¯å°ˆæ¡ˆè³‡è¨Šã€ä¾è³´å¥—ä»¶æ¸…å–®èˆ‡è‡ªè¨‚çš„ npm åŸ·è¡Œè…³æœ¬
+â”œâ”€â”€ postcss.config.js     # è®€å– Tailwind CSS 
+â”œâ”€â”€ README.md
+â”œâ”€â”€ tsconfig.app.json     # é‡å° React æ‡‰ç”¨ç¨‹å¼çš„ TypeScript ç·¨è­¯è¨­å®š
+â”œâ”€â”€ tsconfig.json         # TypeScript åŸºç¤è¨­å®šæª” (ç¹¼æ‰¿ä¸¦æ•´åˆå…¶ä»– tsconfig)
+â”œâ”€â”€ tsconfig.node.json    # é‡å° Node.js ç’°å¢ƒ (å¦‚ vite.config.ts) çš„ TypeScript è¨­å®š
+â””â”€â”€ vite.config.ts        # Vite æ‰“åŒ…å·¥å…·çš„æ ¸å¿ƒè¨­å®šæª” (ä¾‹å¦‚è¨­å®š proxy æˆ– plugins)
 ```
 
-### ®Ö¤ß³]­p­«ÂI
+### æ ¸å¿ƒè¨­è¨ˆé‡é»
 
-* **§G§½»Pµø¹Ï¤ÀÂ÷ (Layout & Views)**¡G±N¾ÉÄı®Ø¬[¡]Header/Sidebar¡^»P·~°È­¶­±¡]Views¡^¸Ñ½¢¡AÅı¶}µoªÌ¯à±Mª`©ó­¶­±¥\¯à¶}µo¡C
-* **¦³­­ª¬ºA¾÷ (FSM) ÅçÃÒ**¡G°w¹ï½ÆÂø·~°È¹ê§@ÄYÂÔªºª¬ºAÂà´«ÅŞ¿è¡]IDLE, PROCESSING, ALARM, MAINTENANCE¡^©ó´ú¸Õ¤¤½T«Oª¬ºAÅÜ¾E¦w¥ş©Ê¡C
-* **¦Û°Ê¤Æ´ú¸Õ (Unit Testing)**¡G¦b `components/` »P `views/` ¥Ø¿ı¤U§¡«Ø¥ß `__tests__` ¸ê®Æ§¨¡C±Ä¥Î°ÊºA¸ê®Æ¥Í¦¨¡A½T«O´ú¸ÕÀô¹ÒµLª¬ºA¡C
+* **ä½ˆå±€èˆ‡è¦–åœ–åˆ†é›¢ (Layout & Views)**ï¼šå°‡å°è¦½æ¡†æ¶ï¼ˆHeader/Sidebarï¼‰èˆ‡æ¥­å‹™é é¢ï¼ˆViewsï¼‰è§£è€¦ï¼Œè®“é–‹ç™¼è€…èƒ½å°ˆæ³¨æ–¼é é¢åŠŸèƒ½é–‹ç™¼ã€‚
+* **æœ‰é™ç‹€æ…‹æ©Ÿ (FSM) é©—è­‰**ï¼šé‡å°è¤‡é›œæ¥­å‹™å¯¦ä½œåš´è¬¹çš„ç‹€æ…‹è½‰æ›é‚è¼¯ï¼ˆIDLE, PROCESSING, ALARM, MAINTENANCEï¼‰æ–¼æ¸¬è©¦ä¸­ç¢ºä¿ç‹€æ…‹è®Šé·å®‰å…¨æ€§ã€‚
+* **è‡ªå‹•åŒ–æ¸¬è©¦ (Unit Testing)**ï¼šåœ¨ `components/` èˆ‡ `views/` ç›®éŒ„ä¸‹å‡å»ºç«‹ `__tests__` è³‡æ–™å¤¾ã€‚æ¡ç”¨å‹•æ…‹è³‡æ–™ç”Ÿæˆï¼Œç¢ºä¿æ¸¬è©¦ç’°å¢ƒç„¡ç‹€æ…‹ã€‚
 
 ---
 
-## ±Ò°Ê«ü«n (Getting Started)
+## å•Ÿå‹•æŒ‡å— (Getting Started)
 
-½Ğ½T«O±zªº¹q¸£¤w¦w¸Ë [Node.js](https://nodejs.org/) Àô¹Ò¡AµM«á¨Ì·Ó¥H¤U¨BÆJ¾Ş§@¡G
+è«‹ç¢ºä¿æ‚¨çš„é›»è…¦å·²å®‰è£ [Node.js](https://nodejs.org/) ç’°å¢ƒï¼Œç„¶å¾Œä¾ç…§ä»¥ä¸‹æ­¥é©Ÿæ“ä½œï¼š
 
-### Step 1: ¦w¸Ë¨Ì¿à®M¥ó
+### Step 1: å®‰è£ä¾è³´å¥—ä»¶
 
 ```bash
 cd frontend
 npm install
 ```
 
-* **npm install**¡GÅª¨ú `package.json` ¨Ã¤U¸ü±M®×©Ò»İªº©Ò¦³¤u¨ã¡]React, Tailwind, Vitest µ¥¡^¨ì `node_modules` ¸ê®Æ§¨¤¤¡C
+* **npm install**ï¼šè®€å– `package.json` ä¸¦ä¸‹è¼‰å°ˆæ¡ˆæ‰€éœ€çš„æ‰€æœ‰å·¥å…·ï¼ˆReact, Tailwind, Vitest ç­‰ï¼‰åˆ° `node_modules` è³‡æ–™å¤¾ä¸­ã€‚
 
-### Step 2: ±Ò°Ê React «eºİ¶}µo¦øªA¾¹
+### Step 2: å•Ÿå‹• React å‰ç«¯é–‹ç™¼ä¼ºæœå™¨
 
 ```bash
 npm run dev
 ```
 
-* **npm run dev**¡GVite ´£¨Ñ¡u¼ö§ó·s (HMR)¡v¥\¯à¡A­×§ïµ{¦¡½X«áÂsÄı¾¹·|¥ß§Y¤Ï¬MÅÜ§ó¡C
-* **¹w³]ºô§}**¡G**[http://localhost:5173](https://www.google.com/search?q=http://localhost:5173)**¡C
+* **npm run dev**ï¼šVite æä¾›ã€Œç†±æ›´æ–° (HMR)ã€åŠŸèƒ½ï¼Œä¿®æ”¹ç¨‹å¼ç¢¼å¾Œç€è¦½å™¨æœƒç«‹å³åæ˜ è®Šæ›´ã€‚
+* **é è¨­ç¶²å€**ï¼š**[http://localhost:5173](https://www.google.com/search?q=http://localhost:5173)**ã€‚
 
-### Step 3: °õ¦æ«eºİ³æ¤¸´ú¸Õ
+### Step 3: åŸ·è¡Œå‰ç«¯å–®å…ƒæ¸¬è©¦
 
-¦b´£¥æµ{¦¡½X«e¡A½Ğ°È¥²°õ¦æ´ú¸Õ¥H½T«O®Ö¤ßÅŞ¿è¡]¦p Stateless Åã¥Ü¡B»y¨t¤Á´«¡^¥¿±`¡G
+åœ¨æäº¤ç¨‹å¼ç¢¼å‰ï¼Œè«‹å‹™å¿…åŸ·è¡Œæ¸¬è©¦ä»¥ç¢ºä¿æ ¸å¿ƒé‚è¼¯ï¼ˆå¦‚ Stateless é¡¯ç¤ºã€èªç³»åˆ‡æ›ï¼‰æ­£å¸¸ï¼š
 
 ```bash
 npm run test
@@ -81,8 +81,8 @@ npm run test
 
 ---
 
-## ¶}µo³W½d
+## é–‹ç™¼è¦ç¯„
 
-* **½s½X¼Ğ·Ç**¡G¬°¤FÁ×§K½s½X¿ù»~©Î¶Ã½X¡A©Ò¦³ªºµ{¦¡½X¡BÅÜ¼Æ¦WºÙ¤Îµù¸Ñ **²Î¤@¨Ï¥Î­^¤å (English)**¡C
-* **¼Ë¦¡¨Ï¥Î**¡G±Ä¥Î Tailwind CSS v4 »yªk¡A¦Û©w¸q¥DÃDÅÜ¼Æ¡]¦p `--color-corporate-blue`¡^©w¸q¦b `index.css` ¤¤¡C
-* **¤¸¥ó¶}µo**¡GÀu¥ı¨Ï¥Î¨ç¼Æ¦¡²Õ¥ó (Functional Components) »P React Hooks¡C
+* **ç·¨ç¢¼æ¨™æº–**ï¼šç‚ºäº†é¿å…ç·¨ç¢¼éŒ¯èª¤æˆ–äº‚ç¢¼ï¼Œæ‰€æœ‰çš„ç¨‹å¼ç¢¼ã€è®Šæ•¸åç¨±åŠè¨»è§£ **çµ±ä¸€ä½¿ç”¨è‹±æ–‡ (English)**ã€‚
+* **æ¨£å¼ä½¿ç”¨**ï¼šæ¡ç”¨ Tailwind CSS v4 èªæ³•ï¼Œè‡ªå®šç¾©ä¸»é¡Œè®Šæ•¸ï¼ˆå¦‚ `--color-corporate-blue`ï¼‰å®šç¾©åœ¨ `index.css` ä¸­ã€‚
+* **å…ƒä»¶é–‹ç™¼**ï¼šå„ªå…ˆä½¿ç”¨å‡½æ•¸å¼çµ„ä»¶ (Functional Components) èˆ‡ React Hooksã€‚

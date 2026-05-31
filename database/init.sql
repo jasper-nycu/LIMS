@@ -97,6 +97,12 @@ CREATE TABLE IF NOT EXISTS wafers (
     UNIQUE(request_id, wafer_code)
 );
 
+CREATE TABLE IF NOT EXISTS request_experiments (
+    request_id VARCHAR(20) REFERENCES requests(request_id) ON DELETE CASCADE,
+    exp_key VARCHAR(50) REFERENCES experiments(exp_key),
+    PRIMARY KEY (request_id, exp_key)
+);
+
 CREATE TABLE IF NOT EXISTS wip_tasks (
     task_id SERIAL PRIMARY KEY,
     request_id VARCHAR(20) REFERENCES requests(request_id),
@@ -126,7 +132,7 @@ CREATE INDEX IF NOT EXISTS idx_machine_logs_created_at ON machine_logs(created_a
 CREATE TABLE IF NOT EXISTS notifications (
     notif_id SERIAL PRIMARY KEY,
     user_id VARCHAR(20) REFERENCES users(employee_id),
-    title VARCHAR(20) NOT NULL,
+    title VARCHAR(120) NOT NULL,
     message TEXT,
     type VARCHAR(20) DEFAULT 'info',
     is_read BOOLEAN DEFAULT false,

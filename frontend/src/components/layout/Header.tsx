@@ -2,8 +2,10 @@
 import React, { useState } from 'react';
 
 export interface UserProfile {
+  empId: string;
   name: string;
   role: string;
+  avatarBase64?: string;
 }
 
 export interface NotificationData {
@@ -11,6 +13,7 @@ export interface NotificationData {
   title: string;
   desc: string;
   type: 'info' | 'success' | 'error' | 'warning';
+  read?: boolean;
 }
 
 interface HeaderProps {
@@ -26,10 +29,10 @@ interface HeaderProps {
   onMarkAsRead: () => void;
 }
 
-export const Header: React.FC<HeaderProps> = ({ 
-  onToggleMenu, 
-  language, 
-  onLanguageChange, 
+export const Header: React.FC<HeaderProps> = ({
+  onToggleMenu,
+  language,
+  onLanguageChange,
   user,
   onProfileClick,
   notifications,
@@ -43,26 +46,27 @@ export const Header: React.FC<HeaderProps> = ({
 
   const handleClearAll = () => {
     setIsClearing(true);
-    // Wait for the fade-out animation (300ms) to complete before actual deletion
     setTimeout(() => {
       onClearAllNotifications();
       setIsClearing(false);
+      setShowNotifs(false);
     }, 300);
   };
 
-  // Localization Dictionary
   const i18n = {
     en: {
       title: 'System Notifications',
       empty: 'No new notifications',
       new: 'New',
-      clear: 'Clear All'
+      clear: 'Clear All',
+      langTw: 'TW'
     },
     tw: {
       title: '系統通知',
       empty: '目前沒有新通知',
       new: '則新訊息',
-      clear: '一鍵刪除'
+      clear: '一鍵刪除',
+      langTw: '中文'
     }
   };
 
@@ -90,18 +94,16 @@ export const Header: React.FC<HeaderProps> = ({
       </div>
 
       <div className="flex items-center gap-3 md:gap-6">
-        {/* Sliding Language Switcher */}
         <div className="relative flex bg-slate-100 p-0.5 rounded-lg text-[11px] md:text-xs font-bold shadow-inner border border-slate-200 h-8 md:h-9">
           <div className="lang-pill" style={{ left: language === 'en' ? '2px' : '50%', width: 'calc(50% - 2px)' }} />
           <button onClick={() => onLanguageChange('en')} className={`relative z-10 px-3 md:px-4 py-1 transition-colors duration-300 cursor-pointer ${language === 'en' ? 'text-corporate-blue' : 'text-slate-500'}`}>EN</button>
-          <button onClick={() => onLanguageChange('tw')} className={`relative z-10 px-3 md:px-4 py-1 transition-colors duration-300 cursor-pointer ${language === 'tw' ? 'text-corporate-blue' : 'text-slate-500'}`}>中文</button>
+          <button onClick={() => onLanguageChange('tw')} className={`relative z-10 px-3 md:px-4 py-1 transition-colors duration-300 cursor-pointer ${language === 'tw' ? 'text-corporate-blue' : 'text-slate-500'}`}>{i18n.tw.langTw}</button>
         </div>
 
         <div className="flex items-center gap-2 md:gap-4">
           <div className="relative">
             <button onClick={handleToggleNotifs} className="relative p-1.5 md:p-2 text-slate-500 hover:bg-slate-100 rounded-full transition-colors focus:outline-none cursor-pointer">
               <span className="material-symbols-outlined text-[22px] md:text-[24px]">notifications</span>
-              {/* Red dot appears only if hasNew is true and there are messages */}
               {hasNew && notifications.length > 0 && (
                 <span className="absolute top-2 right-2 flex h-2 w-2">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
@@ -109,7 +111,7 @@ export const Header: React.FC<HeaderProps> = ({
                 </span>
               )}
             </button>
-            
+
             {showNotifs && (
               <div className="absolute right-0 mt-3 w-72 md:w-80 glass-panel rounded-2xl p-4 z-50 animate-[fadeIn_0.2s_ease-out] shadow-xl border border-slate-200/60" onClick={(e) => e.stopPropagation()}>
                 <div className="flex justify-between items-center mb-4 px-1">
@@ -122,7 +124,7 @@ export const Header: React.FC<HeaderProps> = ({
                     )}
                   </div>
                   {notifications.length > 0 && (
-                    <button 
+                    <button
                       onClick={(e) => { e.stopPropagation(); handleClearAll(); }}
                       className="text-[10px] font-bold text-corporate-blue hover:text-blue-700 cursor-pointer transition-colors"
                     >
@@ -157,14 +159,20 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
 
           <div className="h-6 md:h-8 w-px bg-slate-200"></div>
-          
+
           <div onClick={onProfileClick} className="flex items-center gap-2 md:gap-3 cursor-pointer group pr-1">
             <div className="text-right hidden sm:block">
-              <p className="text-xs md:text-sm font-bold text-slate-900 group-hover:text-corporate-blue transition-colors leading-tight">{user?.name || "Username"}</p>
-              <p className="text-[9px] md:text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">{user?.role || "Public"}</p>
+              <p className="text-xs md:text-sm font-bold text-slate-900 group-hover:text-corporate-blue transition-colors leading-tight">{user?.name || 'Username'}</p>
+              <p className="text-[9px] md:text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">
+                {user?.role ? user.role.replace('ROLE_', '').replace('_', ' ') : 'PUBLIC'}
+              </p>
             </div>
             <div className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-slate-100 border border-slate-300 flex items-center justify-center text-slate-400 shadow-inner group-hover:border-corporate-blue/30 transition-all overflow-hidden">
-              <span className="material-symbols-outlined text-[24px] md:text-[28px] translate-y-0.5 select-none">person</span>
+              {user?.avatarBase64 ? (
+                <img src={user.avatarBase64} alt="" className="h-full w-full object-cover" />
+              ) : (
+                <span className="material-symbols-outlined text-[24px] md:text-[28px] translate-y-0.5 select-none">person</span>
+              )}
             </div>
           </div>
         </div>
