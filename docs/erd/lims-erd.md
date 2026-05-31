@@ -1,4 +1,4 @@
-# LIMS Cloud-Native Entity Relationship Diagram
+# LIMS 實體關聯圖 (Entity Relationship Diagram)
 ```mermaid
 erDiagram
     USER ||--o{ REQUEST : "submits"
