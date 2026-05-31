@@ -1,4 +1,4 @@
-# LIMS ¹êÅéÃöÁp¹Ï (Entity Relationship Diagram)
+# LIMS å¯¦é«”é—œè¯åœ– (Entity Relationship Diagram)
 ```mermaid
 erDiagram
     USER ||--o{ REQUEST : "submits"
