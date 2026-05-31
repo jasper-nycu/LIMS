@@ -90,6 +90,12 @@ CREATE TABLE IF NOT EXISTS wafers (
     UNIQUE(request_id, wafer_code)
 );
 
+CREATE TABLE IF NOT EXISTS request_experiments (
+    request_id VARCHAR(20) REFERENCES requests(request_id) ON DELETE CASCADE,
+    exp_key VARCHAR(50) REFERENCES experiments(exp_key),
+    PRIMARY KEY (request_id, exp_key)
+);
+
 CREATE TABLE IF NOT EXISTS wip_tasks (
     task_id SERIAL PRIMARY KEY,
     request_id VARCHAR(20) REFERENCES requests(request_id),

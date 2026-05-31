@@ -13,6 +13,7 @@ export interface NotificationData {
   title: string;
   desc: string;
   type: 'info' | 'success' | 'error' | 'warning';
+  read?: boolean;
 }
 
 interface HeaderProps {

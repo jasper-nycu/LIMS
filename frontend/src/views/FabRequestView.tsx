@@ -1,5 +1,7 @@
 // src/views/FabRequestView.tsx
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import api from '../api/axiosInstance';
+import { type UserProfile } from '../components/layout/Header';
 
 // --- Custom Modal Component ---
 interface CustomModalProps {
@@ -49,7 +51,7 @@ interface RequestItem {
 export const FabRequestView: React.FC<{ 
   language: 'en' | 'tw'; 
   onNotify: (title: string, desc: string, type: 'info' | 'success' | 'error' | 'warning') => void; 
-  user?: any; // get current user info
+  user?: UserProfile | null;
 }> = ({ language, onNotify, user }) => {
   const labs = {
     LAB_RA: { en: 'Reliability Lab (RA)', tw: '可靠度實驗室 (RA)' },
@@ -105,6 +107,40 @@ export const FabRequestView: React.FC<{
   const [remarks, setRemarks] = useState('');
   const [requests, setRequests] = useState<RequestItem[]>([]);
   const [modal, setModal] = useState({ isOpen: false, title: '', message: '', type: 'info' as any });
+  const [totalExpsCount, setTotalExpsCount] = useState<number>(6);
+
+  useEffect(() => {
+    if (!user?.empId) return;
+    api.get(`/fab/requests?requesterId=${encodeURIComponent(user.empId)}`)
+      .then(res => setRequests(res.data.map((item: any) => ({
+        id: item.id,
+        experiments: item.experiments,
+        waferCount: item.waferCount,
+        status: item.status,
+        priority: item.priority,
+      }))))
+      .catch(() => undefined);
+
+    api.get('/fab/labs')
+      .then(res => {
+        let count = 0;
+        res.data.forEach((lab: any) => {
+          count += (lab.experiments || []).length;
+        });
+        setTotalExpsCount(count);
+      })
+      .catch(() => setTotalExpsCount(6));
+  }, [user?.empId]);
+
+  if (user && user.role !== 'ROLE_SYSADMIN' && user.role !== 'ROLE_FAB_USER') {
+    return (
+      <div className="flex flex-col items-center justify-center h-[60vh] text-slate-500 space-y-4">
+        <span className="material-symbols-outlined text-6xl text-slate-300">lock</span>
+        <h2 className="text-xl font-bold">{language === 'en' ? 'Access Denied' : '權限不足'}</h2>
+        <p className="text-sm">{language === 'en' ? 'You do not have permission to access Fab Requests.' : '您沒有權限存取委託單系統。'}</p>
+      </div>
+    );
+  }
 
   const handleAddWafer = () => {
     const val = waferInput.trim().toUpperCase();
@@ -120,15 +156,69 @@ export const FabRequestView: React.FC<{
     setWaferInput('');
   };
 
+  const handleLabChange = (labId: keyof typeof labs) => {
+    setSelectedLab(labId);
+  };
+
   const toggleExp = (key: string) => {
     setSelectedExps(prev => prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (wafers.length === 0 || selectedExps.length === 0) {
       setModal({ isOpen: true, title: 'Missing Info', message: ui.err_empty, type: 'error' });
       return;
+    }
+
+    const activeLabs = Object.keys(experimentsMap).filter(lab =>
+      experimentsMap[lab].some(exp => selectedExps.includes(exp))
+    );
+
+    if (user?.empId) {
+      try {
+        const promises = activeLabs.map(labId => {
+          const labExps = selectedExps.filter(exp => experimentsMap[labId].includes(exp));
+          return api.post('/fab/requests', {
+            requesterId: user.empId,
+            labId: labId,
+            experimentKeys: labExps,
+            waferIds: wafers,
+            priority,
+            remarks,
+          });
+        });
+
+        const results = await Promise.all(promises);
+        
+        const newReqs: RequestItem[] = results.map(res => ({
+          id: res.data.id,
+          experiments: res.data.experiments,
+          waferCount: res.data.waferCount,
+          status: res.data.status,
+          priority: res.data.priority,
+        }));
+
+        setRequests(prev => [...newReqs, ...prev]);
+        
+        const ids = newReqs.map(r => r.id).join(', ');
+        onNotify(
+          language === 'en' ? 'Requests Created' : '委託單已建立',
+          `${ids}: ${wafers.length} wafers submitted across ${activeLabs.length} lab(s).`,
+          'success'
+        );
+        setModal({ isOpen: true, title: ui.success_title, message: `${ui.success_msg} (${ids})`, type: 'success' });
+        setWafers([]); setSelectedExps([]); setRemarks('');
+        return;
+      } catch (error) {
+        setModal({
+          isOpen: true,
+          title: 'Submission Failed',
+          message: error instanceof Error ? error.message : 'Unable to submit request to backend API.',
+          type: 'error'
+        });
+        return;
+      }
     }
 
     const newReq: RequestItem = {
@@ -150,6 +240,15 @@ export const FabRequestView: React.FC<{
     setModal({ isOpen: true, title: ui.success_title, message: `${ui.success_msg} (${newReq.id})`, type: 'success' });
     
     setWafers([]); setSelectedExps([]); setRemarks('');
+  };
+
+  const getStatusStyle = (status: string) => {
+    switch (status) {
+      case 'PENDING': return 'bg-amber-50 text-amber-600 border-amber-100';
+      case 'APPROVED': return 'bg-emerald-50 text-emerald-600 border-emerald-100';
+      case 'REJECTED': return 'bg-red-50 text-red-600 border-red-100';
+      default: return 'bg-slate-50 text-slate-600 border-slate-200';
+    }
   };
 
   const getPriorityStyle = () => {
@@ -182,7 +281,7 @@ export const FabRequestView: React.FC<{
                 id="lab-select"
                 className="w-full rounded-xl border-slate-200 text-sm py-3 px-4 font-semibold text-slate-700 focus:ring-corporate-blue cursor-pointer"
                 value={selectedLab}
-                onChange={(e) => setSelectedLab(e.target.value as any)}
+                onChange={(e) => handleLabChange(e.target.value as keyof typeof labs)}
               >
                 {Object.entries(labs).map(([key, label]) => (
                   <option key={key} value={key}>{language === 'en' ? label.en : label.tw}</option>
@@ -192,7 +291,15 @@ export const FabRequestView: React.FC<{
           </div>
 
           <div className="space-y-3">
-            <p className="text-xs font-bold text-slate-700 uppercase tracking-wider">{ui.selectExp}</p>
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-bold text-slate-700 uppercase tracking-wider">{ui.selectExp}</p>
+              {selectedExps.length > 0 && (
+                <span className="text-xs text-corporate-blue font-bold">
+                  {language === 'en' ? `Selected: ${selectedExps.length} / ${totalExpsCount}` : `已選項目: ${selectedExps.length} / ${totalExpsCount}`}
+                </span>
+              )}
+            </div>
+            
             <div className="flex flex-wrap gap-3">
               {experimentsMap[selectedLab].map(expKey => (
                 <button
@@ -283,7 +390,9 @@ export const FabRequestView: React.FC<{
                     <td className="px-6 md:px-10 py-5 text-xs text-slate-500">{req.experiments.join(', ')}</td>
                     <td className="px-6 md:px-10 py-5 text-slate-600 font-bold">{req.waferCount}</td>
                     <td className="px-6 md:px-10 py-5 text-right">
-                      <span className="px-3 py-1.5 bg-amber-50 text-amber-600 rounded-lg text-[10px] font-bold border border-amber-100">{req.status}</span>
+                      <span className={`px-3 py-1.5 rounded-lg text-[10px] font-bold border ${getStatusStyle(req.status)}`}>
+                        {req.status}
+                      </span>
                     </td>
                   </tr>
                 ))

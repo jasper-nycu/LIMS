@@ -1,13 +1,9 @@
 # LIMS Cloud-Native Entity Relationship Diagram
-
-![Project Preview](lims-erd.png)
-
 ```mermaid
 erDiagram
     USER ||--o{ REQUEST : "submits"
     USER ||--o{ REQUEST : "approves/rejects (Manager)"
     USER ||--o{ NOTIFICATION : "receives"
-    USER ||--o{ MACHINE_OWNER : "assigned_to"
     
     ROLE ||--|{ USER : "defines_permissions"
     
@@ -17,13 +13,15 @@ erDiagram
     
     REQUEST ||--|{ WAFER : "contains"
     REQUEST ||--|{ WIP_TASK : "generates (1NF)"
+    REQUEST ||--|{ REQUEST_EXPERIMENT : "includes"
     
     WAFER ||--|{ WIP_TASK : "undergoes"
+    
     EXPERIMENT ||--|{ WIP_TASK : "defined_as"
+    EXPERIMENT ||--|{ REQUEST_EXPERIMENT : "is_part_of"
     
     MACHINE ||--o{ WIP_TASK : "executes"
     MACHINE ||--|{ RECIPE : "configures"
-    MACHINE ||--|{ MACHINE_OWNER : "managed_by"
 
     %% ------------------------------------------
     %% Entity Definitions
@@ -68,6 +66,11 @@ erDiagram
         string exp_key PK "exp_sem, exp_bake, etc."
         string lab_id FK
         string exp_name
+    }
+    
+    REQUEST_EXPERIMENT {
+        string request_id PK, FK
+        string exp_key PK, FK
     }
 
     REQUEST {
@@ -127,10 +130,5 @@ erDiagram
         string type "info/success/error"
         boolean is_read
         datetime created_at
-    }
-
-    MACHINE_OWNER {
-        string machine_id FK
-        string user_id FK
     }
 ```

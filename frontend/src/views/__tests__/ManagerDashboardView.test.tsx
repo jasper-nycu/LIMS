@@ -1,6 +1,17 @@
 // src/views/__tests__/ManagerDashboardView.test.tsx
 import { render, screen, fireEvent, act, cleanup } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+
+// Mock API requests to prevent pending promises and external network failures
+vi.mock('../../api/axiosInstance', () => ({
+  default: {
+    get: vi.fn(() => Promise.resolve({ data: [] })),
+    put: vi.fn(() => Promise.resolve({ data: {} })),
+    post: vi.fn(() => Promise.resolve({ data: {} })),
+    delete: vi.fn(() => Promise.resolve({ data: {} }))
+  }
+}));
+
 import { ManagerDashboardView, type ManagerRequest } from '../ManagerDashboardView';
 
 describe('ManagerDashboardView - Enterprise Supervisor Approval Testing Suite', () => {
@@ -118,6 +129,27 @@ describe('ManagerDashboardView - Enterprise Supervisor Approval Testing Suite', 
       
       // Ensure specific hardcoded mock IDs (like REQ-8842) are not present [Requirement: Stateless]
       expect(screen.queryByText('REQ-8842')).not.toBeInTheDocument();
+    });
+  });
+
+  describe('Queue Sorting', () => {
+    it('orders requests by priority and then submit time within the same priority', () => {
+      const requests: ManagerRequest[] = [
+        { ...generateDynamicRequests(1)[0], id: 'REQ-NORMAL', priority: 'NORMAL', submitTime: '2026-05-15 09:00' },
+        { ...generateDynamicRequests(1)[0], id: 'REQ-CRIT-OLD', priority: 'CRITICAL', submitTime: '2026-05-15 08:00' },
+        { ...generateDynamicRequests(1)[0], id: 'REQ-URGENT', priority: 'URGENT', submitTime: '2026-05-15 07:00' },
+        { ...generateDynamicRequests(1)[0], id: 'REQ-CRIT-NEW', priority: 'CRITICAL', submitTime: '2026-05-15 10:00' },
+      ];
+
+      render(<ManagerDashboardView {...defaultProps(requests)} />);
+
+      const bodyRows = screen.getAllByRole('row').slice(1);
+      expect(bodyRows.map(row => row.textContent)).toEqual([
+        expect.stringContaining('REQ-CRIT-OLD'),
+        expect.stringContaining('REQ-CRIT-NEW'),
+        expect.stringContaining('REQ-URGENT'),
+        expect.stringContaining('REQ-NORMAL'),
+      ]);
     });
   });
 });

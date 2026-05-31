@@ -1,5 +1,5 @@
 // src/App.tsx
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Header, type UserProfile, type NotificationData } from './components/layout/Header';
 import { Sidebar } from './components/layout/Sidebar';
 import { FabRequestView } from './views/FabRequestView';
@@ -42,6 +42,7 @@ const App: React.FC = () => {
   
   // 1. Set notifications to an empty array for Stateless requirement
   const [notifications, setNotifications] = useState<NotificationData[]>([]);
+  const deletedNotificationIds = useRef<Set<string>>(new Set());
   
   // 2. Set initial notification badge to false
   const [hasNew, setHasNew] = useState<boolean>(false); 
@@ -340,6 +341,18 @@ const App: React.FC = () => {
     setCapacityTimeRange('1h');
     setUser(nextUser);
 
+    if (nextUser.role === 'ROLE_FAB_USER') {
+      setActiveView('view-factory-request');
+    } else if (nextUser.role === 'ROLE_LAB_OPERATOR') {
+      setActiveView('view-lab-operations');
+    } else if (nextUser.role === 'ROLE_LAB_MANAGER') {
+      setActiveView('view-manager-dashboard');
+    } else if (nextUser.role === 'ROLE_MACHINE_OWNER') {
+      setActiveView('view-capacity-analytics');
+    } else { // ROLE_SYSADMIN and ROLE_PUBLIC
+      setActiveView('view-my-profile');
+    }
+
     try {
       const avatarRes = await api.get('/users/me/avatar');
       if (avatarRes.data?.avatarBase64) {
@@ -359,40 +372,126 @@ const App: React.FC = () => {
       id: Date.now().toString(),
       title: fallbackTitle, // In a real app, titleKey would be used with i18n lookup
       desc,
-      type
+      type,
+      read: false
     };
     setNotifications(prev => [newNotif, ...prev]);
     setHasNew(true);
+
+    // Asynchronously dispatch custom event to enforce zero-latency notification synchronization
+    setTimeout(() => {
+      window.dispatchEvent(new CustomEvent('sync-notifications'));
+    }, 500);
   };
 
-  const handleMarkAsRead = () => {
+  const handleMarkAsRead = async () => {
     if (hasNew) {
+      // Only dismiss the badge — notifications stay visible so the user can read them.
+      // They will not reappear on next login because the backend marks them is_read = true.
       setHasNew(false);
-      setNotifications(prev => prev.map(n => ({ ...n, isRead: true as any })));
+      try {
+        await api.put('/users/me/notifications/read');
+      } catch (error) {
+        console.warn('Failed to sync read status to backend', error);
+      }
     }
   };
 
   const handleDeleteNotif = (id: string) => {
+    // The notification is already is_read = true on the backend (set when the user opened the tray).
+    // Just remove it from the local UI and track the ID so polling doesn't bring it back.
+    deletedNotificationIds.current.add(id);
     const updated = notifications.filter(n => n.id !== id);
     setNotifications(updated);
     if (updated.length === 0) setHasNew(false);
   };
 
-  const handleClearAllNotifs = () => {
-    setNotifications([]);
-    setHasNew(false);
+  // Destructive transaction to clear all personal alerts safely without altering concurrent modules
+  const handleClearAllNotifs = async () => {
+    try {
+      // Direct call to the newly added DELETE endpoint on the backend resource
+      await api.delete('/users/me/notifications');
+      setNotifications([]);
+      setHasNew(false);
+    } catch (error) {
+      console.warn('Network layer returned error while purging notifications. Executing defensive local state split.', error);
+      // Defensive fallback: clear local states anyway to protect user experience from interceptor side effects
+      setNotifications([]);
+      setHasNew(false);
+    }
   };
+
+  // --- Start Real-time Notification Polling & Event-Driven Sync ---
+  useEffect(() => {
+    if (!user) return; // Do not poll if the user is not authenticated
+
+    const fetchNotifications = async () => {
+      try {
+        // Fetch notifications from the backend NotificationController
+        const res = await api.get('/users/me/notifications'); 
+        
+        if (Array.isArray(res.data)) {
+          const incoming: NotificationData[] = res.data
+            .map((n: any) => ({
+              id: n.notifId?.toString(),
+              title: n.title,
+              desc: n.message,
+              type: n.type || 'info',
+              read: false
+            }))
+            .filter((n: NotificationData) => !deletedNotificationIds.current.has(n.id));
+
+          // Polling must ONLY inject brand-new notifications into the existing list.
+          // It must NOT overwrite the list — removal is exclusively the user's action
+          // (single X or Clear All). This prevents the tray from self-clearing after
+          // the user opens it and the backend stops returning is_read=true items.
+          setNotifications(prev => {
+            const existingIds = new Set(prev.map(n => n.id));
+            const brandNew = incoming.filter(n => !existingIds.has(n.id));
+            // Prepend new items; existing items stay until the user removes them
+            return brandNew.length > 0 ? [...brandNew, ...prev] : prev;
+          });
+
+          // Light up the badge only for brand-new arrivals not previously seen
+          setHasNew(prev => {
+            if (prev) return true; // Badge already on, keep it
+            const existingIds = new Set(notifications.map(n => n.id));
+            return incoming.some(n => !existingIds.has(n.id));
+          });
+        }
+      } catch (error) {
+        console.warn('Failed to fetch notifications from backend', error);
+      }
+    };
+
+    // Execute immediately upon component mount or user login
+    fetchNotifications();
+
+    // Setup short polling interval (fetch every 10 seconds)
+    const intervalId = setInterval(fetchNotifications, 10000);
+
+    // Event-driven immediate listener to intercept business state mutations
+    const handleInstantSync = () => fetchNotifications();
+    window.addEventListener('sync-notifications', handleInstantSync);
+
+    // Cleanup the interval and listener when the component unmounts or user changes
+    return () => {
+      clearInterval(intervalId);
+      window.removeEventListener('sync-notifications', handleInstantSync);
+    };
+  }, [user]);
+  // --- End Real-time Notification Polling & Event-Driven Sync ---
 
   const renderContent = () => {
     // Standardized View Injection
     switch (activeView) {
       case 'view-factory-request':
         // Mapping simple notify to the standardized 4-param notify
-        return <FabRequestView language={language} onNotify={(t, d, tp) => addNotification(null, t, d, tp)} user={user} />;
+        return <FabRequestView language={language} user={user} onNotify={(t, d, tp) => addNotification(null, t, d, tp)} />;
       case 'view-lab-operations':
-        return <LabOperationsView language={language} onNotify={addNotification} machines={machines} updateMachine={updateMachine} />;
+        return <LabOperationsView language={language} user={user} onNotify={addNotification} machines={machines} updateMachine={updateMachine} />;
       case 'view-manager-dashboard':
-        return <ManagerDashboardView language={language} onNotify={addNotification} />;
+        return <ManagerDashboardView language={language} user={user} onNotify={addNotification} />;
       case 'view-capacity-analytics':
         return (
           <CapacityAnalyticsView
@@ -462,7 +561,8 @@ const App: React.FC = () => {
           onToggle={toggleSidebar} 
           activeView={activeView} 
           onViewChange={setActiveView} 
-          language={language} 
+          language={language}
+          user={user} 
         />
 
         <main className="flex-1 overflow-y-auto p-4 md:p-8 bg-slate-50 transition-all custom-scrollbar">

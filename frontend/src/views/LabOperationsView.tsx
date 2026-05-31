@@ -26,6 +26,7 @@ interface LabOperationsViewProps {
   machines?: Record<string, MachineState>;
   updateMachine?: (id: string, patch: Partial<MachineState>) => void;
   initialWips?: WipWafer[]; // For dynamic testing and injection
+  user?: { empId: string; name: string; role: string; avatarBase64?: string; } | null; // Injected for fine-grained RBAC button visibility
 }
 
 const defaultMachineState: Record<string, MachineState> = {
@@ -37,7 +38,7 @@ const defaultMachineState: Record<string, MachineState> = {
   'XRD-01': { id: 'XRD-01', state: 'IDLE', loaded: [], cap: 25, expKey: 'exp_xrd', name: 'X-Ray Diffraction', error: null, currentUtil: 0, owners: [{ initials: 'TH', color: 'bg-amber-500' }] }
 };
 
-export const LabOperationsView: React.FC<LabOperationsViewProps> = ({ language, onNotify, machines = defaultMachineState, updateMachine, initialWips = [] }) => {
+export const LabOperationsView: React.FC<LabOperationsViewProps> = ({ language, onNotify, machines = defaultMachineState, updateMachine, initialWips = [], user }) => {
   const [localMachines, setLocalMachines] = useState<Record<string, MachineState>>(machines);
   const sharedMachines = updateMachine ? machines : localMachines;
   const updateMachineLocal = (id: string, patch: Partial<MachineState>) => {
@@ -301,12 +302,15 @@ export const LabOperationsView: React.FC<LabOperationsViewProps> = ({ language, 
               <select id="rec-op-sel" className="w-full rounded-xl border-slate-200 text-sm text-slate-700 cursor-pointer">{(recipes[targetMachId] || ['Default']).map(r => <option key={r} value={r}>{r}</option>)}</select>
             </div>
           </div>
-          <button 
-            onClick={handleDispatch} 
-            className="w-full bg-corporate-blue text-white py-4 rounded-xl font-bold hover:bg-blue-700 shadow-lg shadow-blue-100 flex justify-center items-center gap-2 active:scale-95 transition-all cursor-pointer"
-          >
-            <span className="material-symbols-outlined">bolt</span> {ui.execute}
-          </button>
+          {/* RBAC Compliance: Enforce distinct split between administrative supervision and shop-floor execution */}
+          {user?.role !== 'ROLE_LAB_MANAGER' && (
+            <button 
+              onClick={handleDispatch} 
+              className="w-full bg-corporate-blue text-white py-4 rounded-xl font-bold hover:bg-blue-700 shadow-lg shadow-blue-100 flex justify-center items-center gap-2 active:scale-95 transition-all cursor-pointer"
+            >
+              <span className="material-symbols-outlined">bolt</span> {ui.execute}
+            </button>
+          )}
         </div>
       </div>
 
