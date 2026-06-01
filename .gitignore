@@ -8,3 +8,9 @@
 
 # IDE and editor specific files
 .vscode/
+
+# Local log files generated at runtime
+*.log
+
+# Claude Code local memory (not part of the project)
+.claude/

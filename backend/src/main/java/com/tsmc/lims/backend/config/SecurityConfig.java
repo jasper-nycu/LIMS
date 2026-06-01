@@ -39,9 +39,9 @@ public class SecurityConfig {
             .csrf(AbstractHttpConfigurer::disable) // Disable CSRF since we are using stateless JWTs for authentication
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)) // Declare that we do not use sessions and rely entirely on JWTs (Stateless)
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/api/v1/auth/**").permitAll() // DMZ: Allow unauthenticated access to authentication endpoints
+                .requestMatchers("/api/v1/auth/**").permitAll()
                 .requestMatchers("/error").permitAll()
-                .anyRequest().authenticated() // All other endpoints require authentication (protected by JWT)
+                .anyRequest().authenticated()
             )
             // Let Spring Security know to use our custom JWT filter before the default UsernamePasswordAuthenticationFilter
             .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);

@@ -233,7 +233,27 @@ const App: React.FC = () => {
         const data = res.data;
         setMachines((prev) => {
           const next = { ...prev };
+          const ownerColorPalette = ['bg-slate-600','bg-blue-400','bg-emerald-600','bg-red-500','bg-indigo-500','bg-amber-500','bg-accent-sky','bg-purple-500'];
           data.forEach((m: any) => {
+            if (!next[m.id]) {
+              // Machine missing from state (e.g. cleared on logout) — rebuild from backend
+              next[m.id] = {
+                id: m.id,
+                name: m.name ?? m.id,
+                state: (m.state as MachineState['state']) ?? 'IDLE',
+                loaded: m.loadedWafers ?? [],
+                cap: m.cap ?? 1,
+                expKey: m.expKey ?? '',
+                error: m.error ?? null,
+                currentUtil: m.currentUtil ?? 0,
+                owners: (m.owners ?? []).map((initials: string, idx: number) => ({
+                  initials,
+                  color: ownerColorPalette[idx % ownerColorPalette.length],
+                })),
+                loadedCount: m.loadedCount ?? 0,
+                utilHistory: [{ timestamp: Date.now(), util: m.currentUtil ?? 0 }],
+              };
+            }
             if (next[m.id]) {
               // Preserve existing state but incorporate timestamped history coming from backend when present
               const existing = next[m.id];
@@ -290,6 +310,7 @@ const App: React.FC = () => {
                 ...next[m.id],
                 state: (m.state as MachineState['state']) || next[m.id].state,
                 cap: m.cap || next[m.id].cap,
+                loaded: m.loadedWafers ?? [],
                 currentUtil: incomingCurrentUtil,
                 error: m.error ?? next[m.id].error,
                 loadedCount: m.loadedCount ?? next[m.id].loadedCount,
@@ -306,6 +327,9 @@ const App: React.FC = () => {
 
     fetchMachines();
   }, [user]); // Trigger machine data fetch on user login/logout to ensure we have the latest data when authenticated
+
+  // Utilization history is now fetched on-demand inside CapacityAnalyticsView
+  // to avoid parallel background requests that overwhelm the backend.
 
   useEffect(() => {
     const handleAuthExpired = () => {
@@ -366,29 +390,26 @@ const App: React.FC = () => {
   const toggleSidebar = () => setIsSidebarOpen(prev => !prev);
   const navigateToProfile = () => setActiveView('view-my-profile');
   
-  // Function to bridge views with the header notifications
-  const addNotification = (_titleKey: string | null, fallbackTitle: string, desc: string, type: 'info' | 'success' | 'error' | 'warning' = 'info') => {
-    const newNotif: NotificationData = {
-      id: Date.now().toString(),
-      title: fallbackTitle, // In a real app, titleKey would be used with i18n lookup
-      desc,
-      type,
-      read: false
-    };
-    setNotifications(prev => [newNotif, ...prev]);
-    setHasNew(true);
-
-    // Asynchronously dispatch custom event to enforce zero-latency notification synchronization
-    setTimeout(() => {
-      window.dispatchEvent(new CustomEvent('sync-notifications'));
-    }, 500);
+  const addNotification = (
+    _titleKey: string | null,
+    fallbackTitle: string,
+    desc: string,
+    type: 'info' | 'success' | 'error' | 'warning' = 'info'
+  ) => {
+    // Save to backend DB so notifications persist across sessions, then trigger immediate fetch.
+    // We intentionally do NOT add a local temp object — the fetch is the single source of truth,
+    // which prevents duplicates when the backend also saved the same event (e.g. dispatch success).
+    api.post('/users/me/notifications', { title: fallbackTitle, message: desc, type })
+      .catch(() => { /* best-effort: notification may be lost if the request fails */ })
+      .finally(() => {
+        window.dispatchEvent(new CustomEvent('sync-notifications'));
+      });
   };
 
   const handleMarkAsRead = async () => {
     if (hasNew) {
-      // Only dismiss the badge — notifications stay visible so the user can read them.
-      // They will not reappear on next login because the backend marks them is_read = true.
       setHasNew(false);
+      setNotifications(prev => prev.map(n => ({ ...n, read: true })));
       try {
         await api.put('/users/me/notifications/read');
       } catch (error) {
@@ -398,27 +419,24 @@ const App: React.FC = () => {
   };
 
   const handleDeleteNotif = (id: string) => {
-    // The notification is already is_read = true on the backend (set when the user opened the tray).
-    // Just remove it from the local UI and track the ID so polling doesn't bring it back.
     deletedNotificationIds.current.add(id);
-    const updated = notifications.filter(n => n.id !== id);
-    setNotifications(updated);
-    if (updated.length === 0) setHasNew(false);
+    setNotifications(prev => {
+      const updated = prev.filter(n => n.id !== id);
+      if (updated.every(n => n.read)) setHasNew(false);
+      return updated;
+    });
+    api.delete(`/users/me/notifications/${id}`).catch(() => {});
   };
 
-  // Destructive transaction to clear all personal alerts safely without altering concurrent modules
   const handleClearAllNotifs = async () => {
     try {
-      // Direct call to the newly added DELETE endpoint on the backend resource
       await api.delete('/users/me/notifications');
-      setNotifications([]);
-      setHasNew(false);
     } catch (error) {
-      console.warn('Network layer returned error while purging notifications. Executing defensive local state split.', error);
-      // Defensive fallback: clear local states anyway to protect user experience from interceptor side effects
-      setNotifications([]);
-      setHasNew(false);
+      console.warn('Failed to clear notifications on backend', error);
     }
+    deletedNotificationIds.current.clear();
+    setNotifications([]);
+    setHasNew(false);
   };
 
   // --- Start Real-time Notification Polling & Event-Driven Sync ---
@@ -427,9 +445,7 @@ const App: React.FC = () => {
 
     const fetchNotifications = async () => {
       try {
-        // Fetch notifications from the backend NotificationController
-        const res = await api.get('/users/me/notifications'); 
-        
+        const res = await api.get('/users/me/notifications');
         if (Array.isArray(res.data)) {
           const incoming: NotificationData[] = res.data
             .map((n: any) => ({
@@ -437,27 +453,14 @@ const App: React.FC = () => {
               title: n.title,
               desc: n.message,
               type: n.type || 'info',
-              read: false
+              read: Boolean(n.isRead),
             }))
             .filter((n: NotificationData) => !deletedNotificationIds.current.has(n.id));
 
-          // Polling must ONLY inject brand-new notifications into the existing list.
-          // It must NOT overwrite the list — removal is exclusively the user's action
-          // (single X or Clear All). This prevents the tray from self-clearing after
-          // the user opens it and the backend stops returning is_read=true items.
-          setNotifications(prev => {
-            const existingIds = new Set(prev.map(n => n.id));
-            const brandNew = incoming.filter(n => !existingIds.has(n.id));
-            // Prepend new items; existing items stay until the user removes them
-            return brandNew.length > 0 ? [...brandNew, ...prev] : prev;
-          });
-
-          // Light up the badge only for brand-new arrivals not previously seen
-          setHasNew(prev => {
-            if (prev) return true; // Badge already on, keep it
-            const existingIds = new Set(notifications.map(n => n.id));
-            return incoming.some(n => !existingIds.has(n.id));
-          });
+          // Full sync: backend is source of truth. Locally-deleted IDs are excluded above.
+          setNotifications(incoming);
+          // Badge lights up only for genuinely unread notifications.
+          setHasNew(incoming.some(n => !n.read));
         }
       } catch (error) {
         console.warn('Failed to fetch notifications from backend', error);
@@ -531,7 +534,7 @@ const App: React.FC = () => {
   // Public Access Control Routing Layer
   if (!user) {
     return (
-      <AuthView 
+      <AuthView
         language={language}
         onLanguageChange={setLanguage}
         onLoginSuccess={handleLoginSuccess}
@@ -539,6 +542,7 @@ const App: React.FC = () => {
       />
     );
   }
+
 
   return (
     <div className="flex flex-col h-screen w-full overflow-hidden">

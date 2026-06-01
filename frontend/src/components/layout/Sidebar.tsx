@@ -39,8 +39,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const navItems = [
     { id: 'view-factory-request', icon: 'description', roles: ['ROLE_SYSADMIN', 'ROLE_FAB_USER'] },
-    { id: 'view-lab-operations', icon: 'biotech', roles: ['ROLE_SYSADMIN', 'ROLE_LAB_MANAGER', 'ROLE_LAB_OPERATOR'] },
-    { id: 'view-manager-dashboard', icon: 'dashboard', roles: ['ROLE_SYSADMIN', 'ROLE_LAB_MANAGER', 'ROLE_MACHINE_OWNER'] },
+    { id: 'view-lab-operations', icon: 'biotech', roles: ['ROLE_SYSADMIN', 'ROLE_LAB_MANAGER', 'ROLE_LAB_OPERATOR', 'ROLE_MACHINE_OWNER'] },
+    { id: 'view-manager-dashboard', icon: 'dashboard', roles: ['ROLE_SYSADMIN', 'ROLE_LAB_MANAGER'] },
     { id: 'view-capacity-analytics', icon: 'insights', roles: ['ROLE_SYSADMIN', 'ROLE_LAB_MANAGER', 'ROLE_MACHINE_OWNER'] },
     { id: 'view-my-profile', icon: 'account_circle' }
   ].filter(item => !item.roles || item.roles.includes(user.role));
