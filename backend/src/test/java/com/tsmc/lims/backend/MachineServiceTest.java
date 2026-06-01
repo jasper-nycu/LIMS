@@ -1,5 +1,13 @@
 package com.tsmc.lims.backend;
 
+import com.tsmc.lims.backend.fabuser.entity.Experiment;
+import com.tsmc.lims.backend.fabuser.entity.FabRequest;
+import com.tsmc.lims.backend.fabuser.entity.Laboratory;
+import com.tsmc.lims.backend.fabuser.repository.LaboratoryRepository;
+import com.tsmc.lims.backend.fabuser.repository.ExperimentRepository;
+import com.tsmc.lims.backend.fabuser.repository.FabRequestRepository;
+import com.tsmc.lims.backend.auth.repository.UserRepository;
+import com.tsmc.lims.backend.auth.entity.User;
 import com.tsmc.lims.backend.lab.dto.DispatchRequest;
 import com.tsmc.lims.backend.lab.dto.MachineResponse;
 import com.tsmc.lims.backend.lab.dto.NameRequest;
@@ -36,13 +44,49 @@ class MachineServiceTest {
     @Autowired
     private WipTaskRepository wipTaskRepository;
 
+    @Autowired
+    private FabRequestRepository fabRequestRepository;
+
+    @Autowired
+    private ExperimentRepository experimentRepository;
+
+    @Autowired
+    private LaboratoryRepository laboratoryRepository;
+
+    @Autowired
+    private UserRepository userRepository;
+
     private static final String MACHINE_ID = "BAKE-OVEN-01";
 
     @BeforeEach
     void setUp() {
+        // 1. 由子表往父表清理資料，避免外鍵衝突
         wipTaskRepository.deleteAll();
         machineRepository.deleteAll();
 
+        // ===== 2. 建立並儲存 User (處理所有 nullable = false 的必填欄位) =====
+        User requester = new User();
+        requester.setEmployeeId("test_user");
+        requester.setFirstName("First");
+        requester.setLastName("Last");
+        requester.setEmail("test@tsmc.com");
+        requester.setPasswordHash("dummy_hash");
+        requester.setPasswordSalt("dummy_salt");
+        userRepository.save(requester);
+
+        // ===== 3. 建立並儲存 Laboratory =====
+        Laboratory lab = new Laboratory("LAB_RA", "Test Lab");
+        laboratoryRepository.save(lab);
+
+        // ===== 4. 建立並儲存 Experiment =====
+        Experiment exp = new Experiment("exp_bake", lab, "Test Bake Exp");
+        experimentRepository.save(exp);
+
+        // ===== 5. 建立並儲存 FabRequest (解決 REQ-SYS-INIT 找不到的問題) =====
+        FabRequest sysInitReq = new FabRequest("REQ-SYS-INIT", requester, lab, "NORMAL", "System Init");
+        fabRequestRepository.save(sysInitReq);
+
+        // ===== 6. 原本的 Machine 初始化 =====
         Machine machine = new Machine();
         machine.setMachineId(MACHINE_ID);
         machine.setLabId("LAB_RA");

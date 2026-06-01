@@ -5,6 +5,7 @@ import com.tsmc.lims.backend.auth.entity.User;
 import com.tsmc.lims.backend.auth.repository.RoleRepository;
 import com.tsmc.lims.backend.auth.repository.UserRepository;
 import com.tsmc.lims.backend.fabuser.entity.Experiment;
+import com.tsmc.lims.backend.fabuser.entity.FabRequest;
 import com.tsmc.lims.backend.fabuser.entity.Laboratory;
 import com.tsmc.lims.backend.lab.dto.DispatchRequest;
 import com.tsmc.lims.backend.lab.dto.EmgUnloadRequest;
@@ -58,27 +59,32 @@ class LabOperationsFsmTest {
 
     @BeforeEach
     void setUp() {
-        // 1. 原本的 Role 與 User 初始化
+        // 1. Role 與 User 初始化
         roleRepository.save(role("ROLE_MACHINE_OWNER", "Machine Owner"));
         roleRepository.save(role("ROLE_LAB_MANAGER",   "Lab Supervisor"));
         roleRepository.save(role("ROLE_LAB_OPERATOR",  "Lab Operator"));
         roleRepository.save(role("ROLE_FAB_USER",      "Fab User"));
 
+        // 這裡取得一個測試用的 User 物件（方便傳入 FabRequest 的建構子）
+        // 如果你的測試類別原本就有取得 user 的方式，可以使用現成的
+        User requester = userRepository.save(user(FAB_ID, "ROLE_FAB_USER"));
         userRepository.save(user(OWNER_ID,    "ROLE_MACHINE_OWNER"));
         userRepository.save(user(MANAGER_ID,  "ROLE_LAB_MANAGER"));
         userRepository.save(user(OPERATOR_ID, "ROLE_LAB_OPERATOR"));
-        userRepository.save(user(FAB_ID,      "ROLE_FAB_USER"));
 
-        // ===== 2. 先建立並儲存 Laboratory 物件 =====
-        // 直接在建構子傳入 "LAB_RA"
+        // 2. 建立並儲存 Laboratory 物件
         Laboratory lab = new Laboratory("LAB_RA", "Research & Analysis Lab"); 
         laboratoryRepository.save(lab);
 
-        // ===== 3. 使用有參數的建構子建立 Experiment 並儲存 =====
+        // 3. 使用有參數的建構子建立 Experiment 並儲存
         Experiment exp = new Experiment("exp_bake", lab, "High-Temp Bake Experiment");
         experimentRepository.save(exp);
 
-        // 4. 原本的 Machine 初始化
+        // ===== 4. 傳入正確參數，建立並儲存 FabRequest (解決 REQ-TEST-001 找不到的問題) =====
+        FabRequest fr = new FabRequest("REQ-TEST-001", requester, lab, "NORMAL", "Test Remark");
+        fabRequestRepository.save(fr);
+
+        // 5. Machine 初始化
         Machine m = new Machine();
         m.setMachineId(MACHINE_ID);
         m.setLabId("LAB_RA");
@@ -89,7 +95,7 @@ class LabOperationsFsmTest {
         m.setCurrentUtilization(0);
         machineRepository.save(m);
 
-        // 5. 原本的 WipTask 迴圈
+        // 6. WipTask 迴圈 (現在關聯的父資料全部都有了，100% 不會拋出外鍵約束異常)
         for (int i = 1; i <= 3; i++) {
             WipTask t = new WipTask();
             t.setRequestId("REQ-TEST-001");
