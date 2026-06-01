@@ -161,6 +161,12 @@ class MachineServiceTest {
 
     @Test
     void toMaintenanceShouldRequireAlarmState() {
+        // 1. 先把機器狀態改成 PROCESSING (生產中不准直接去維修，才會觸發異常)
+        Machine machine = machineRepository.findById(MACHINE_ID).orElseThrow();
+        machine.setState(MachineState.PROCESSING); 
+        machineRepository.save(machine);
+
+        // 2. 執行測試斷言
         assertThatThrownBy(() -> machineService.toMaintenance(MACHINE_ID))
                 .isInstanceOf(InvalidStateTransitionException.class);
     }
