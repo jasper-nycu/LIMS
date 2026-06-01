@@ -32,7 +32,15 @@ class FabManagerWorkflowIntegrationTests {
 
     @DynamicPropertySource
     static void postgresProperties(DynamicPropertyRegistry registry) {
+        // 1. 原本容器的配置
         PostgresTestSupport.configure(registry, "lims_test_fab_workflow");
+        
+        // 2. 強制讓 Hibernate 自動建表時，直接蓋在 lims_test_fab_workflow 底下
+        registry.add("spring.jpa.properties.hibernate.default_schema", () -> "lims_test_fab_workflow");
+        
+        // 3. 如果專案內有使用 Flyway 或 Liquibase 遷移工具，也一起強制指定
+        registry.add("spring.flyway.schemas", () -> "lims_test_fab_workflow");
+        registry.add("spring.liquibase.default-schema", () -> "lims_test_fab_workflow");
     }
 
     @Autowired private FabRequestService fabRequestService;
@@ -47,10 +55,8 @@ class FabManagerWorkflowIntegrationTests {
 
     @BeforeEach
     void setUp() {
-        //在最前面加上這兩行，確保 PostgreSQL 容器內有這個 schema
+        // 確保 Schema 一定存在
         jdbcTemplate.execute("CREATE SCHEMA IF NOT EXISTS lims_test_fab_workflow;");
-        jdbcTemplate.execute("ALTER ROLE CURRENT_USER SET search_path TO lims_test_fab_workflow, public;");
-        jdbcTemplate.execute("SET search_path TO lims_test_fab_workflow, public;");
 
         requestRepository.deleteAll();
         waferRepository.deleteAll();
