@@ -1,6 +1,7 @@
 // src/views/CapacityAnalyticsView.tsx
 import React, { useState, useEffect, useRef } from 'react';
 import { Chart, registerables } from 'chart.js';
+import api from '../api/axiosInstance';
 
 // Register Chart.js modules safely for React lifecycle handles
 Chart.register(...registerables);
@@ -115,6 +116,43 @@ export const CapacityAnalyticsView: React.FC<CapacityAnalyticsViewProps> = ({
   const machineIds = Object.keys(machines);
   const machineIdKey = machineIds.join('|');
 
+  // Local utilization history, fetched on-demand (sequential) when this view is active.
+  // Keyed by machineId; replaces the App-level background polling that caused socket hangs.
+  const [utilHistories, setUtilHistories] = useState<Record<string, MachineHistoryPoint[]>>({});
+
+  const hoursForRange: Record<string, number> = {
+    '5m': 1, '1h': 2, '3h': 4, '12h': 13, '1d': 25, '3d': 73, '1w': 168,
+  };
+
+  useEffect(() => {
+    if (machineIds.length === 0) return;
+    const hours = hoursForRange[timeRange] ?? 2;
+    let cancelled = false;
+
+    const fetchSequentially = async () => {
+      for (const machineId of machineIds) {
+        if (cancelled) break;
+        try {
+          const res = await api.get(`/machines/${encodeURIComponent(machineId)}/utilization-history?hours=${hours}`);
+          const raw: any[] = res.data?.data ?? res.data ?? [];
+          if (!cancelled) {
+            const pts: MachineHistoryPoint[] = raw.map((p: any) => ({
+              timestamp: Number(p.timestamp),
+              util: Number(p.utilization ?? p.util ?? 0),
+              state: p.state,
+            }));
+            setUtilHistories(prev => ({ ...prev, [machineId]: pts }));
+          }
+        } catch {
+          // ignore per-machine errors silently
+        }
+      }
+    };
+
+    fetchSequentially();
+    return () => { cancelled = true; };
+  }, [timeRange, machineIdKey]);
+
   // DOM Canvas Hooks to guarantee isolated memory allocations
   const chartRef1 = useRef<HTMLCanvasElement | null>(null);
   const chartRef2 = useRef<HTMLCanvasElement | null>(null);
@@ -168,9 +206,8 @@ export const CapacityAnalyticsView: React.FC<CapacityAnalyticsViewProps> = ({
     const now = Date.now();
     const startTs = now - rangeMs;
     // Deep-clone history entries to avoid accidental shared object mutation
-    const rawHistory = Array.isArray(machine.utilHistory)
-      ? machine.utilHistory.map(p => ({ timestamp: p.timestamp, util: p.util, state: p.state }))
-      : [];
+    const src = utilHistories[machine.id] ?? machine.utilHistory ?? [];
+    const rawHistory = src.map(p => ({ timestamp: p.timestamp, util: p.util, state: p.state }));
     rawHistory.sort((a, b) => a.timestamp - b.timestamp);
 
     const beforeStart = rawHistory.filter(point => point.timestamp < startTs).pop();
@@ -233,18 +270,23 @@ export const CapacityAnalyticsView: React.FC<CapacityAnalyticsViewProps> = ({
 
     const now = new Date();
     const labels: string[] = [];
-    const points = 7;
+    // Denser sampling per range so intra-interval events are captured.
+    // X-axis uses maxTicksLimit to show only ~7 readable labels.
+    const pointsForRange: Record<string, number> = {
+      '5m': 30,   // 1 per 10 s
+      '1h': 60,   // 1 per 1 min
+      '3h': 72,   // 1 per 2.5 min
+      '12h': 72,  // 1 per 10 min
+      '1d': 72,   // 1 per 20 min
+      '3d': 72,   // 1 per 1 h
+      '1w': 84,   // 1 per 2 h
+    };
+    const points = pointsForRange[timeRange] ?? 60;
+    const nowTs = now.getTime();
+    const rangeMs2 = rangeMsMap[timeRange] ?? rangeMsMap['1h'];
     // Build labels (oldest -> now)
     for (let i = points - 1; i >= 0; i--) {
-      const t = new Date(now.getTime());
-      if (timeRange === '5m') t.setMinutes(t.getMinutes() - i);
-      else if (timeRange === '1h') t.setMinutes(t.getMinutes() - i * 10);
-      else if (timeRange === '3h') t.setMinutes(t.getMinutes() - i * 30);
-      else if (timeRange === '12h') t.setHours(t.getHours() - i * 2);
-      else if (timeRange === '1d') t.setHours(t.getHours() - i * 4);
-      else if (timeRange === '3d') t.setHours(t.getHours() - i * 12);
-      else if (timeRange === '1w') t.setDate(t.getDate() - i);
-
+      const t = new Date(nowTs - Math.round(rangeMs2 * (i / Math.max(1, points - 1))));
       if (i === 0) labels.push(ui.nowLabel);
       else labels.push(timeRange === '3d' || timeRange === '1w' ? `${formatDate(t)} ${formatTime(t)}` : formatTime(t));
     }
@@ -265,7 +307,8 @@ export const CapacityAnalyticsView: React.FC<CapacityAnalyticsViewProps> = ({
       const nowTs = Date.now();
 
       const currentValue = m ? (m.state === 'ALARM' || m.state === 'MAINTENANCE' ? 0 : m.currentUtil) : 0;
-      const history = Array.isArray(m?.utilHistory) ? m!.utilHistory! : [];
+      // Prefer locally-fetched history (on-demand, correct range) over stale App-level history
+      const history = utilHistories[id] ?? (Array.isArray(m?.utilHistory) ? m!.utilHistory! : []);
       const sorted = [...history].sort((a, b) => a.timestamp - b.timestamp);
 
       const values: number[] = [];
@@ -320,7 +363,7 @@ export const CapacityAnalyticsView: React.FC<CapacityAnalyticsViewProps> = ({
       },
       scales: {
         y: { beginAtZero: true, max: 100, title: { display: true, text: ui.yAxisLabel, font: { size: 10 } } },
-        x: { title: { display: false } }
+        x: { title: { display: false }, ticks: { maxTicksLimit: 7, autoSkip: true } }
       }
     };
 
@@ -335,9 +378,9 @@ export const CapacityAnalyticsView: React.FC<CapacityAnalyticsViewProps> = ({
       data: {
         labels,
         datasets: [
-          { label: 'SEM-01', data: dataLineSEM, borderColor: getBorderColor('SEM-01', '#10b981'), backgroundColor: getBgColor('SEM-01', 'rgba(16, 185, 129, 0.1)'), borderWidth: 2, pointBackgroundColor: getBorderColor('SEM-01', '#10b981'), tension: 0.4, fill: true },
-          { label: 'TEM-01', data: dataLineTEM, borderColor: getBorderColor('TEM-01', '#6366f1'), backgroundColor: getBgColor('TEM-01', 'rgba(99, 102, 241, 0.1)'), borderWidth: 2, pointBackgroundColor: getBorderColor('TEM-01', '#6366f1'), tension: 0.4, fill: true },
-          { label: 'FIB-01', data: dataLineFIB, borderColor: getBorderColor('FIB-01', '#ec4899'), backgroundColor: getBgColor('FIB-01', 'rgba(236, 72, 153, 0.1)'), borderWidth: 2, pointBackgroundColor: getBorderColor('FIB-01', '#ec4899'), tension: 0.4, fill: true }
+          { label: 'SEM-01', data: dataLineSEM, borderColor: getBorderColor('SEM-01', '#10b981'), backgroundColor: getBgColor('SEM-01', 'rgba(16, 185, 129, 0.1)'), borderWidth: 2, pointBackgroundColor: getBorderColor('SEM-01', '#10b981'), tension: 0, fill: true },
+          { label: 'TEM-01', data: dataLineTEM, borderColor: getBorderColor('TEM-01', '#6366f1'), backgroundColor: getBgColor('TEM-01', 'rgba(99, 102, 241, 0.1)'), borderWidth: 2, pointBackgroundColor: getBorderColor('TEM-01', '#6366f1'), tension: 0, fill: true },
+          { label: 'FIB-01', data: dataLineFIB, borderColor: getBorderColor('FIB-01', '#ec4899'), backgroundColor: getBgColor('FIB-01', 'rgba(236, 72, 153, 0.1)'), borderWidth: 2, pointBackgroundColor: getBorderColor('FIB-01', '#ec4899'), tension: 0, fill: true }
         ]
       },
       options: { ...commonOptions, plugins: { ...commonOptions.plugins, title: { display: true, text: ui.analysisTitle } } }
@@ -349,9 +392,9 @@ export const CapacityAnalyticsView: React.FC<CapacityAnalyticsViewProps> = ({
       data: {
         labels,
         datasets: [
-          { label: 'BAKE-OVEN-01', data: dataLineBAKE, borderColor: getBorderColor('BAKE-OVEN-01', '#0ea5e9'), backgroundColor: getBgColor('BAKE-OVEN-01', 'rgba(14, 165, 233, 0.1)'), borderWidth: 2, pointBackgroundColor: getBorderColor('BAKE-OVEN-01', '#0ea5e9'), tension: 0.4, fill: true },
-          { label: 'E-TEST-02', data: dataLineETEST, borderColor: getBorderColor('E-TEST-02', '#f59e0b'), backgroundColor: getBgColor('E-TEST-02', 'rgba(245, 158, 11, 0.1)'), borderWidth: 2, pointBackgroundColor: getBorderColor('E-TEST-02', '#f59e0b'), tension: 0.4, fill: true },
-          { label: 'XRD-01', data: dataLineXRD, borderColor: getBorderColor('XRD-01', '#8b5cf6'), backgroundColor: getBgColor('XRD-01', 'rgba(139, 92, 246, 0.1)'), borderWidth: 2, pointBackgroundColor: getBorderColor('XRD-01', '#8b5cf6'), tension: 0.4, fill: true }
+          { label: 'BAKE-OVEN-01', data: dataLineBAKE, borderColor: getBorderColor('BAKE-OVEN-01', '#0ea5e9'), backgroundColor: getBgColor('BAKE-OVEN-01', 'rgba(14, 165, 233, 0.1)'), borderWidth: 2, pointBackgroundColor: getBorderColor('BAKE-OVEN-01', '#0ea5e9'), tension: 0, fill: true },
+          { label: 'E-TEST-02', data: dataLineETEST, borderColor: getBorderColor('E-TEST-02', '#f59e0b'), backgroundColor: getBgColor('E-TEST-02', 'rgba(245, 158, 11, 0.1)'), borderWidth: 2, pointBackgroundColor: getBorderColor('E-TEST-02', '#f59e0b'), tension: 0, fill: true },
+          { label: 'XRD-01', data: dataLineXRD, borderColor: getBorderColor('XRD-01', '#8b5cf6'), backgroundColor: getBgColor('XRD-01', 'rgba(139, 92, 246, 0.1)'), borderWidth: 2, pointBackgroundColor: getBorderColor('XRD-01', '#8b5cf6'), tension: 0, fill: true }
         ]
       },
       options: { ...commonOptions, plugins: { ...commonOptions.plugins, title: { display: true, text: ui.processTitle } } }

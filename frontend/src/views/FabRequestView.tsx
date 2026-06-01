@@ -200,13 +200,10 @@ export const FabRequestView: React.FC<{
         }));
 
         setRequests(prev => [...newReqs, ...prev]);
-        
+
         const ids = newReqs.map(r => r.id).join(', ');
-        onNotify(
-          language === 'en' ? 'Requests Created' : '委託單已建立',
-          `${ids}: ${wafers.length} wafers submitted across ${activeLabs.length} lab(s).`,
-          'success'
-        );
+        // Backend already saves "Request Submitted" notification for the requester — just sync.
+        window.dispatchEvent(new CustomEvent('sync-notifications'));
         setModal({ isOpen: true, title: ui.success_title, message: `${ui.success_msg} (${ids})`, type: 'success' });
         setWafers([]); setSelectedExps([]); setRemarks('');
         return;
@@ -230,12 +227,6 @@ export const FabRequestView: React.FC<{
     };
 
     setRequests([newReq, ...requests]);
-
-    onNotify(
-      language === 'en' ? 'Request Created' : '委託單已建立',
-      `${newReq.id}: ${wafers.length} wafers submitted.`,
-      'success'
-    );
 
     setModal({ isOpen: true, title: ui.success_title, message: `${ui.success_msg} (${newReq.id})`, type: 'success' });
     

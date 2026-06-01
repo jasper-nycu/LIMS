@@ -54,7 +54,7 @@ public class NotificationService {
 
     @Transactional
     public void clearAllNotificationsByUserId(String userId) {
-        notificationRepository.markAllAsReadByUserId(userId);
+        notificationRepository.deleteByUserId(userId);
     }
 
     @Transactional

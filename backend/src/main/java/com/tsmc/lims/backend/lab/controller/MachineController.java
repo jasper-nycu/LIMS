@@ -3,6 +3,7 @@ package com.tsmc.lims.backend.lab.controller;
 import com.tsmc.lims.backend.lab.dto.ApiResponse;
 import com.tsmc.lims.backend.lab.dto.DispatchRequest;
 import com.tsmc.lims.backend.lab.dto.EmgUnloadRequest;
+import com.tsmc.lims.backend.lab.dto.ExperimentFailedRequest;
 import com.tsmc.lims.backend.lab.dto.MachineLogEntry;
 import com.tsmc.lims.backend.lab.dto.MachineResponse;
 import com.tsmc.lims.backend.lab.dto.NameRequest;
@@ -82,6 +83,15 @@ public class MachineController {
     @PostMapping("/{id}/online")
     public ResponseEntity<ApiResponse<MachineResponse>> setOnline(@PathVariable String id) {
         return ResponseEntity.ok(ApiResponse.ok("Machine online", machineService.setOnline(id)));
+    }
+
+    /** Experiment result: notify FAB requester(s) when processing failed */
+    @PostMapping("/{id}/experiment-failed")
+    public ResponseEntity<Void> experimentFailed(
+            @PathVariable String id,
+            @RequestBody ExperimentFailedRequest req) {
+        machineService.notifyExperimentFailed(id, req.waferCodes());
+        return ResponseEntity.ok().build();
     }
 
     /** Recipe management */

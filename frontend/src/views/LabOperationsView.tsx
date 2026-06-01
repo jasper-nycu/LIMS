@@ -113,6 +113,9 @@ export const LabOperationsView: React.FC<LabOperationsViewProps> = ({ language, 
   const [logModal, setLogModal] = useState<{ isOpen: boolean; machId: string | null }>({ isOpen: false, machId: null });
   const [logEntries, setLogEntries] = useState<Array<{ timestamp: string; level: string; message: string }>>([]);
   const [logLoading, setLogLoading] = useState(false);
+  const [experimentResult, setExperimentResult] = useState<{
+    isOpen: boolean; success: boolean; machId: string; waferCodes: string[];
+  }>({ isOpen: false, success: true, machId: '', waferCodes: [] });
 
   useEffect(() => {
     if (!logModal.isOpen || !logModal.machId) return;
@@ -234,7 +237,8 @@ export const LabOperationsView: React.FC<LabOperationsViewProps> = ({ language, 
       applyMachineResponse(targetMachId, res.data);
       setWips(prev => prev.filter(w => !selectedWipIds.has(w.id)));
       setSelectedWips(new Set());
-      onNotify(null, 'Dispatch Success', `${waferCodes.length} wafers sent to ${targetMachId}`, 'success');
+      // Backend already saves "Dispatch Success" via notifyByRoles — just sync to show it.
+      window.dispatchEvent(new CustomEvent('sync-notifications'));
     } catch (e: any) {
       onNotify(null, 'Dispatch Failed', e?.response?.data?.message || 'Could not dispatch wafers.', 'error');
     }
@@ -246,11 +250,8 @@ export const LabOperationsView: React.FC<LabOperationsViewProps> = ({ language, 
     try {
       const res = await api.post(`/machines/${encodeURIComponent(id)}/emg-unload`, { action });
       applyMachineResponse(id, res.data);
-      if (action === 'REUSE') {
-        onNotify(null, language === 'en' ? 'Wafers Reused' : '晶圓重用', `Wafers returned to WIP from ${id}.`, 'info');
-      } else {
-        onNotify(null, language === 'en' ? 'Wafers Scrapped' : '晶圓作廢', `Wafers discarded from ${id}.`, 'warning');
-      }
+      // Backend already saves the EMG result via notifyByRoles — just sync to show it.
+      window.dispatchEvent(new CustomEvent('sync-notifications'));
     } catch (e: any) {
       onNotify(null, 'EMG Unload Failed', e?.response?.data?.message || 'Could not complete EMG unload.', 'error');
     }
@@ -262,12 +263,12 @@ export const LabOperationsView: React.FC<LabOperationsViewProps> = ({ language, 
       if (m.state === 'ALARM') {
         const res = await api.post(`/machines/${encodeURIComponent(id)}/resolve-alarm`);
         applyMachineResponse(id, res.data);
-        onNotify(null, 'Alarm Resolved', `${id} is back online.`, 'success');
       } else {
         const res = await api.post(`/machines/${encodeURIComponent(id)}/simulate-error`);
         applyMachineResponse(id, res.data);
-        onNotify(null, language === 'en' ? 'System Alert' : '系統警報', `${id} ${language === 'en' ? 'reported a simulated fault.' : '觸發模擬故障。'}`, 'error');
       }
+      // Backend already saves the alarm event via notifyByRoles — just sync to show it.
+      window.dispatchEvent(new CustomEvent('sync-notifications'));
     } catch (e: any) {
       onNotify(null, 'Action Failed', e?.response?.data?.message || 'Could not update alarm state.', 'error');
     }
@@ -292,7 +293,8 @@ export const LabOperationsView: React.FC<LabOperationsViewProps> = ({ language, 
     try {
       const res = await api.post(`/machines/${encodeURIComponent(id)}/${isMaint ? 'online' : 'maintenance'}`);
       applyMachineResponse(id, res.data);
-      onNotify(null, isMaint ? 'Machine Online' : 'Machine Offline', `${id} is now ${isMaint ? 'Online' : 'under Maintenance'}.`, isMaint ? 'success' : 'info');
+      // Backend already saves the maintenance event via notifyByRoles — just sync to show it.
+      window.dispatchEvent(new CustomEvent('sync-notifications'));
     } catch (e: any) {
       onNotify(null, 'Action Failed', e?.response?.data?.message || 'Could not update maintenance state.', 'error');
     }
@@ -464,10 +466,19 @@ export const LabOperationsView: React.FC<LabOperationsViewProps> = ({ language, 
                           {m.state === 'PROCESSING' && (
                             <button
                               onClick={async () => {
+                                const waferCodes = [...m.loaded];
                                 try {
                                   const res = await api.post(`/machines/${encodeURIComponent(m.id)}/unload`);
                                   applyMachineResponse(m.id, res.data);
-                                  onNotify(null, language === 'en' ? 'Unload Success' : '下貨成功', `${m.id} ${language === 'en' ? 'wafers collected.' : '晶圓已卸載。'}`, 'success');
+                                  const success = Math.random() < 0.9;
+                                  setExperimentResult({ isOpen: true, success, machId: m.id, waferCodes });
+                                  if (!success) {
+                                    api.post(`/machines/${encodeURIComponent(m.id)}/experiment-failed`, { waferCodes }).catch(() => {});
+                                    onNotify(null, language === 'en' ? 'Experiment Failed' : '實驗失敗',
+                                      `${waferCodes.length} wafer(s) on ${m.id} failed. FAB user notified to resubmit.`, 'error');
+                                  } else {
+                                    window.dispatchEvent(new CustomEvent('sync-notifications'));
+                                  }
                                 } catch (e: any) {
                                   onNotify(null, 'Unload Failed', e?.response?.data?.message || 'Could not unload.', 'error');
                                 }
@@ -634,6 +645,44 @@ export const LabOperationsView: React.FC<LabOperationsViewProps> = ({ language, 
         </div>
       )}
 
+      {experimentResult.isOpen && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-[fadeIn_0.2s_ease-out]">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-sm p-8 text-center space-y-4 animate-[zoomIn_0.2s_ease-out]">
+            <div className={`mx-auto flex items-center justify-center h-20 w-20 rounded-full border-8 border-white shadow-sm mb-2 ${experimentResult.success ? 'bg-emerald-50' : 'bg-red-50'}`}>
+              <span className={`material-symbols-outlined text-5xl ${experimentResult.success ? 'text-emerald-500' : 'text-red-500'}`}>
+                {experimentResult.success ? 'check_circle' : 'cancel'}
+              </span>
+            </div>
+            <h3 className="text-xl font-bold text-slate-900">
+              {experimentResult.success
+                ? (language === 'en' ? 'Experiment Successful!' : '實驗成功！')
+                : (language === 'en' ? 'Experiment Failed' : '實驗失敗')}
+            </h3>
+            <p className="text-sm text-slate-500 font-medium leading-relaxed">
+              {experimentResult.success
+                ? (language === 'en'
+                    ? `All ${experimentResult.waferCodes.length} wafer(s) on ${experimentResult.machId} processed successfully.`
+                    : `${experimentResult.machId} 上的 ${experimentResult.waferCodes.length} 片晶圓已成功完成實驗。`)
+                : (language === 'en'
+                    ? `Processing error detected on ${experimentResult.machId}. The FAB user has been notified to resubmit their request.`
+                    : `${experimentResult.machId} 偵測到處理錯誤，已通知 FAB 使用者重新送出申請。`)}
+            </p>
+            {!experimentResult.success && (
+              <div className="bg-red-50 border border-red-100 rounded-xl px-4 py-2 text-left">
+                <p className="text-[10px] font-bold text-red-600 uppercase tracking-widest mb-1">Affected Wafers</p>
+                <p className="text-xs font-mono text-red-700 break-all">{experimentResult.waferCodes.join(', ')}</p>
+              </div>
+            )}
+            <button
+              onClick={() => setExperimentResult(prev => ({ ...prev, isOpen: false }))}
+              className={`w-full mt-2 px-4 py-3 text-white text-sm font-bold rounded-xl transition-all shadow-md active:scale-95 cursor-pointer ${experimentResult.success ? 'bg-emerald-500 hover:bg-emerald-600' : 'bg-slate-900 hover:bg-slate-800'}`}
+            >
+              {language === 'en' ? 'Close' : '關閉'}
+            </button>
+          </div>
+        </div>
+      )}
+
       {showRecModal && (
         <div className="fixed inset-0 z-[9996] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden">
@@ -657,7 +706,8 @@ export const LabOperationsView: React.FC<LabOperationsViewProps> = ({ language, 
                       const list: string[] = res.data?.data ?? res.data ?? [];
                       setRecipes(prev => ({ ...prev, [targetMachId]: list }));
                       setNewRecipeInput('');
-                      onNotify(null, language === 'en' ? 'Recipe Added' : '參數新增成功', ui.notif_rec_added, 'success');
+                      // Backend already saves "Recipe Added" via notifyByRoles — just sync.
+                      window.dispatchEvent(new CustomEvent('sync-notifications'));
                     } catch (e: any) { onNotify(null, 'Failed', e?.response?.data?.message || 'Could not add recipe.', 'error'); }
                   }} 
                   className="px-4 py-2 bg-corporate-blue text-white text-sm font-bold rounded-xl hover:bg-blue-700 cursor-pointer"

@@ -9,7 +9,6 @@ import { CapacityAnalyticsView } from './views/CapacityAnalyticsView';
 import { MyProfileView } from './views/MyProfileView';
 import { AuthView } from './views/AuthView';
 import api from './api/axiosInstance';
-import { getUtilizationHistory } from './api/machineApi';
 
 interface Owner {
   initials: string;
@@ -329,50 +328,8 @@ const App: React.FC = () => {
     fetchMachines();
   }, [user]); // Trigger machine data fetch on user login/logout to ensure we have the latest data when authenticated
 
-  // Fetch utilization history for all machines periodically to keep charts updated
-  useEffect(() => {
-    if (!user || Object.keys(machines).length === 0) return;
-
-    const fetchAllHistories = async () => {
-      try {
-        // Fetch 7-day history (168 hours) for each machine
-        const historyPromises = Object.keys(machines).map(machineId =>
-          getUtilizationHistory(machineId, 168)
-            .then(history => ({ machineId, history }))
-            .catch(err => {
-              console.warn(`Failed to fetch utilization history for ${machineId}:`, err);
-              return { machineId, history: [] };
-            })
-        );
-
-        const results = await Promise.all(historyPromises);
-
-        // Update each machine with its history
-        setMachines(prev => {
-          const next = { ...prev };
-          results.forEach(({ machineId, history }) => {
-            if (history && history.length > 0 && next[machineId]) {
-              const convertedHistory = history.map((point: any) => ({
-                timestamp: Number(point.timestamp),
-                util: Number(point.utilization ?? point.util ?? 0),
-                state: point.state
-              }));
-              next[machineId].utilHistory = convertedHistory;
-            }
-          });
-          return next;
-        });
-      } catch (error) {
-        console.warn('Failed to fetch utilization histories:', error);
-      }
-    };
-
-    // Fetch on initial load and then every 30 seconds
-    fetchAllHistories();
-    const intervalId = setInterval(fetchAllHistories, 30000);
-
-    return () => clearInterval(intervalId);
-  }, [user, Object.keys(machines).length]);
+  // Utilization history is now fetched on-demand inside CapacityAnalyticsView
+  // to avoid parallel background requests that overwhelm the backend.
 
   useEffect(() => {
     const handleAuthExpired = () => {
@@ -439,28 +396,20 @@ const App: React.FC = () => {
     desc: string,
     type: 'info' | 'success' | 'error' | 'warning' = 'info'
   ) => {
-    // 1. Show locally to the sender immediately
-    const newNotif: NotificationData = {
-      id: Date.now().toString(),
-      title: fallbackTitle,
-      desc,
-      type,
-      read: false
-    };
-    setNotifications(prev => [newNotif, ...prev]);
-    setHasNew(true);
-
-    // Asynchronously dispatch custom event to enforce zero-latency notification synchronization
-    setTimeout(() => {
-      window.dispatchEvent(new CustomEvent('sync-notifications'));
-    }, 500);
+    // Save to backend DB so notifications persist across sessions, then trigger immediate fetch.
+    // We intentionally do NOT add a local temp object — the fetch is the single source of truth,
+    // which prevents duplicates when the backend also saved the same event (e.g. dispatch success).
+    api.post('/users/me/notifications', { title: fallbackTitle, message: desc, type })
+      .catch(() => { /* best-effort: notification may be lost if the request fails */ })
+      .finally(() => {
+        window.dispatchEvent(new CustomEvent('sync-notifications'));
+      });
   };
 
   const handleMarkAsRead = async () => {
     if (hasNew) {
-      // Only dismiss the badge — notifications stay visible so the user can read them.
-      // They will not reappear on next login because the backend marks them is_read = true.
       setHasNew(false);
+      setNotifications(prev => prev.map(n => ({ ...n, read: true })));
       try {
         await api.put('/users/me/notifications/read');
       } catch (error) {
@@ -470,27 +419,24 @@ const App: React.FC = () => {
   };
 
   const handleDeleteNotif = (id: string) => {
-    // The notification is already is_read = true on the backend (set when the user opened the tray).
-    // Just remove it from the local UI and track the ID so polling doesn't bring it back.
     deletedNotificationIds.current.add(id);
-    const updated = notifications.filter(n => n.id !== id);
-    setNotifications(updated);
-    if (updated.length === 0) setHasNew(false);
+    setNotifications(prev => {
+      const updated = prev.filter(n => n.id !== id);
+      if (updated.every(n => n.read)) setHasNew(false);
+      return updated;
+    });
+    api.delete(`/users/me/notifications/${id}`).catch(() => {});
   };
 
-  // Destructive transaction to clear all personal alerts safely without altering concurrent modules
   const handleClearAllNotifs = async () => {
     try {
-      // Direct call to the newly added DELETE endpoint on the backend resource
       await api.delete('/users/me/notifications');
-      setNotifications([]);
-      setHasNew(false);
     } catch (error) {
-      console.warn('Network layer returned error while purging notifications. Executing defensive local state split.', error);
-      // Defensive fallback: clear local states anyway to protect user experience from interceptor side effects
-      setNotifications([]);
-      setHasNew(false);
+      console.warn('Failed to clear notifications on backend', error);
     }
+    deletedNotificationIds.current.clear();
+    setNotifications([]);
+    setHasNew(false);
   };
 
   // --- Start Real-time Notification Polling & Event-Driven Sync ---
@@ -499,9 +445,7 @@ const App: React.FC = () => {
 
     const fetchNotifications = async () => {
       try {
-        // Fetch notifications from the backend NotificationController
-        const res = await api.get('/users/me/notifications'); 
-        
+        const res = await api.get('/users/me/notifications');
         if (Array.isArray(res.data)) {
           const incoming: NotificationData[] = res.data
             .map((n: any) => ({
@@ -509,27 +453,14 @@ const App: React.FC = () => {
               title: n.title,
               desc: n.message,
               type: n.type || 'info',
-              read: false
+              read: Boolean(n.isRead),
             }))
             .filter((n: NotificationData) => !deletedNotificationIds.current.has(n.id));
 
-          // Polling must ONLY inject brand-new notifications into the existing list.
-          // It must NOT overwrite the list — removal is exclusively the user's action
-          // (single X or Clear All). This prevents the tray from self-clearing after
-          // the user opens it and the backend stops returning is_read=true items.
-          setNotifications(prev => {
-            const existingIds = new Set(prev.map(n => n.id));
-            const brandNew = incoming.filter(n => !existingIds.has(n.id));
-            // Prepend new items; existing items stay until the user removes them
-            return brandNew.length > 0 ? [...brandNew, ...prev] : prev;
-          });
-
-          // Light up the badge only for brand-new arrivals not previously seen
-          setHasNew(prev => {
-            if (prev) return true; // Badge already on, keep it
-            const existingIds = new Set(notifications.map(n => n.id));
-            return incoming.some(n => !existingIds.has(n.id));
-          });
+          // Full sync: backend is source of truth. Locally-deleted IDs are excluded above.
+          setNotifications(incoming);
+          // Badge lights up only for genuinely unread notifications.
+          setHasNew(incoming.some(n => !n.read));
         }
       } catch (error) {
         console.warn('Failed to fetch notifications from backend', error);

@@ -1,5 +1,6 @@
 package com.tsmc.lims.backend.notification.controller;
 
+import com.tsmc.lims.backend.notification.dto.NotificationRequest;
 import com.tsmc.lims.backend.notification.service.NotificationService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -27,7 +28,6 @@ public class NotificationController {
         List<Notification> notifications = notificationService.getNotificationsByUserId(auth.getName())
                 .stream()
                 .filter(n -> !"Session Terminated".equals(n.getTitle()))
-                .filter(n -> !Boolean.TRUE.equals(n.getIsRead()))
                 .toList();
         return ResponseEntity.ok(notifications);
     }
@@ -53,6 +53,13 @@ public class NotificationController {
         return ResponseEntity.noContent().build();
     }
     
+    // Save a client-side notification (e.g. error alerts) to DB for persistence across sessions
+    @PostMapping
+    public ResponseEntity<Void> createNotification(Authentication auth, @RequestBody NotificationRequest req) {
+        notificationService.createNotification(auth.getName(), req.title(), req.message(), req.type());
+        return ResponseEntity.ok().build();
+    }
+
     // Record stateless session termination before token clearance
     @PostMapping("/logout-log")
     public ResponseEntity<Void> logLogoutAction(Authentication auth) {

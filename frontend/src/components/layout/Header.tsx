@@ -118,8 +118,8 @@ export const Header: React.FC<HeaderProps> = ({
                   <div className="flex items-center gap-2">
                     <h3 className="text-sm font-bold text-slate-800">{ui.title}</h3>
                     {notifications.length > 0 && (
-                      <span className="text-[10px] font-bold text-white bg-red-500 px-2 py-0.5 rounded-full shadow-sm">
-                        {notifications.length} {ui.new}
+                      <span className="text-[10px] font-bold text-white bg-slate-400 px-2 py-0.5 rounded-full shadow-sm">
+                        {notifications.length}
                       </span>
                     )}
                   </div>

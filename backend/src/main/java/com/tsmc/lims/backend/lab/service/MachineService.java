@@ -21,8 +21,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -80,11 +82,14 @@ public class MachineService {
             throw new InvalidStateTransitionException(machineId, machine.getState().name(), "PROCESSING");
         }
 
-        List<WipTask> existing = wipTaskRepository
+        // Deduplicate by waferCode: if the same wafer code has multiple QUEUE/PENDING_SORTING
+        // records (e.g. submitted twice), keep only one to prevent duplicate PROCESSING entries.
+        Map<String, WipTask> existingByCode = wipTaskRepository
                 .findByStatusIn(List.of(WipStatus.QUEUE, WipStatus.PENDING_SORTING)).stream()
                 .filter(t -> req.getWaferCodes().contains(t.getWaferCode())
                           && machine.getExpKey().equals(t.getExpKey()))
-                .toList();
+                .collect(Collectors.toMap(WipTask::getWaferCode, t -> t, (t1, t2) -> t1));
+        List<WipTask> existing = new ArrayList<>(existingByCode.values());
 
         int currentLoad = wipTaskRepository.findByMachineIdAndStatus(machineId, WipStatus.PROCESSING).size();
         if (currentLoad + req.getWaferCodes().size() > machine.getCapacity()) {
@@ -317,6 +322,28 @@ public class MachineService {
         notificationService.notifyByRoles(MACHINE_ROLES, "success",
                 "Machine Online", machineId + " resumed processing.");
         return toResponse(saved);
+    }
+
+    // ── Experiment Failed Notification ───────────────────────────────────
+    // Called after the frontend determines (90% success rate) that processing failed.
+    // Notifies the original FAB requester(s) to resubmit their request.
+
+    @Transactional
+    public void notifyExperimentFailed(String machineId, List<String> waferCodes) {
+        List<WipTask> completedTasks = wipTaskRepository
+                .findByMachineIdAndStatus(machineId, WipStatus.COMPLETED)
+                .stream()
+                .filter(t -> waferCodes.contains(t.getWaferCode()))
+                .toList();
+
+        if (!completedTasks.isEmpty()) {
+            String codeList = String.join(", ", waferCodes);
+            notifyRequesters(completedTasks,
+                    "Experiment Failed — Resubmission Required",
+                    waferCodes.size() + " wafer(s) [" + codeList + "] failed processing on " + machineId
+                            + ". Please resubmit your request.",
+                    "error");
+        }
     }
 
     // ── Recipe Management ─────────────────────────────────────────────────
