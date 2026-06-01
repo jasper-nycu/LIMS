@@ -232,13 +232,12 @@ public class MachineService {
     }
 
     // ── Simulate Error (Wafer FSM flow 4 & 5, step A) ────────────────────
-    // Allows both PROCESSING and IDLE → ALARM
 
     @Transactional
     public MachineResponse simulateError(String machineId) {
         Machine machine = getMachine(machineId);
 
-        if (machine.getState() != MachineState.PROCESSING && machine.getState() != MachineState.IDLE) {
+        if (machine.getState() != MachineState.PROCESSING) {
             throw new InvalidStateTransitionException(machineId, machine.getState().name(), "ALARM");
         }
 

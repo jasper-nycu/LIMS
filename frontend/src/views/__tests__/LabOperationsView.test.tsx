@@ -1,5 +1,5 @@
 // src/views/__tests__/LabOperationsView.test.tsx
-import { render, screen, fireEvent, within, cleanup } from '@testing-library/react';
+import { render, screen, fireEvent, within, cleanup, act } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { LabOperationsView, type WipWafer } from '../LabOperationsView';
 
@@ -71,7 +71,7 @@ describe('LabOperationsView - Enterprise Finite State Machine Testing Suite', ()
 
   // --- Machine Management (FSM) ---
   describe('Machine Management (FSM)', () => {
-    it('1 & 2. should follow full Machine FSM path', () => {
+    it('1 & 2. should follow full Machine FSM path', async () => {
       const wips = generateDynamicWafers(1, 'exp_bake');
       render(<LabOperationsView {...defaultProps(wips)} />);
 
@@ -81,40 +81,52 @@ describe('LabOperationsView - Enterprise Finite State Machine Testing Suite', ()
       // [IDLE -> PROCESSING] Dispatch
       fireEvent.click(getWaferCheckbox(wips[0].id));
       fireEvent.change(screen.getByLabelText(/Target Machine/i), { target: { value: machId } });
-      fireEvent.click(screen.getByRole('button', { name: /bolt Execute Dispatch/i }));
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: /bolt Execute Dispatch/i }));
+      });
       expect(within(machCard).getByText('PROCESSING')).toBeInTheDocument();
 
       // [PROCESSING -> ALARM] Simulate Error
-      fireEvent.click(within(machCard).getByRole('button', { name: /Simulate Error/i }));
+      await act(async () => {
+        fireEvent.click(within(machCard).getByRole('button', { name: /Simulate Error/i }));
+      });
       expect(within(machCard).getByText('ALARM')).toBeInTheDocument();
 
       // [ALARM -> MAINTENANCE] Open Modal and Toggle
       fireEvent.click(screen.getByRole('button', { name: /settings Manage Machines/i }));
       const modal = screen.getByRole('heading', { name: /Manage Machines/i }).closest('div.bg-white') as HTMLElement;
       const maintBtn = within(modal).getAllByTitle(/Toggle Maintenance/i).find(btn => within(btn.closest('div')!).queryByText(machId));
-      fireEvent.click(maintBtn!);
+      await act(async () => {
+        fireEvent.click(maintBtn!);
+      });
       expect(within(machCard).getAllByText(/MAINTENANCE/i).length).toBeGreaterThan(0);
 
       // [MAINTENANCE -> PROCESSING] Set Online
-      fireEvent.click(maintBtn!);
+      await act(async () => {
+        fireEvent.click(maintBtn!);
+      });
       expect(within(machCard).getByText('PROCESSING')).toBeInTheDocument();
       fireEvent.click(within(modal).getByText('close'));
 
       // [PROCESSING -> IDLE] Safe Unload — shows experiment result modal on success
-      fireEvent.click(within(machCard).getByRole('button', { name: /^Unload$/ }));
+      await act(async () => {
+        fireEvent.click(within(machCard).getByRole('button', { name: /^Unload$/ }));
+      });
       expect(within(machCard).getByText('IDLE')).toBeInTheDocument();
       // Verify experiment result modal appears and shows success
       expect(screen.getByText(/Experiment Successful!/i)).toBeInTheDocument();
     });
 
-    it('3. should increase machine capacity count after dispatch', () => {
+    it('3. should increase machine capacity count after dispatch', async () => {
       const wips = generateDynamicWafers(3, 'exp_bake');
       render(<LabOperationsView {...defaultProps(wips)} />);
       const machCard = getMachineCard('BAKE-OVEN-01');
 
       fireEvent.click(getWaferCheckbox(wips[0].id));
       fireEvent.click(getWaferCheckbox(wips[1].id));
-      fireEvent.click(screen.getByRole('button', { name: /bolt Execute Dispatch/i }));
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: /bolt Execute Dispatch/i }));
+      });
 
       expect(within(machCard).getByText('2 / 50')).toBeInTheDocument();
     });
@@ -134,59 +146,77 @@ describe('LabOperationsView - Enterprise Finite State Machine Testing Suite', ()
 
   // --- Wafers Process (FSM) ---
   describe('Wafers Process (FSM)', () => {
-    it('1. Wafer Path: WIP -> PROCESSING -> Safe Unload', () => {
+    it('1. Wafer Path: WIP -> PROCESSING -> Safe Unload', async () => {
       const wips = generateDynamicWafers(1);
       render(<LabOperationsView {...defaultProps(wips)} />);
       const machCard = getMachineCard('BAKE-OVEN-01');
 
       fireEvent.click(getWaferCheckbox(wips[0].id));
-      fireEvent.click(screen.getByRole('button', { name: /bolt Execute Dispatch/i }));
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: /bolt Execute Dispatch/i }));
+      });
       expect(within(getWipTable()).queryByText(wips[0].id)).not.toBeInTheDocument();
 
-      fireEvent.click(within(machCard).getByRole('button', { name: /^Unload$/ }));
+      await act(async () => {
+        fireEvent.click(within(machCard).getByRole('button', { name: /^Unload$/ }));
+      });
       expect(within(machCard).getByText('IDLE')).toBeInTheDocument();
       // Experiment result modal should appear
       expect(screen.getByText(/Experiment Successful!/i)).toBeInTheDocument();
     });
 
-    it('2. Wafer Path: WIP -> PROCESSING -> EMG Unload -> Reuse (Return to WIP)', () => {
+    it('2. Wafer Path: WIP -> PROCESSING -> EMG Unload -> Reuse (Return to WIP)', async () => {
       const wips = generateDynamicWafers(1);
       render(<LabOperationsView {...defaultProps(wips)} />);
       const machCard = getMachineCard('BAKE-OVEN-01');
 
       fireEvent.click(getWaferCheckbox(wips[0].id));
-      fireEvent.click(screen.getByRole('button', { name: /bolt Execute Dispatch/i }));
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: /bolt Execute Dispatch/i }));
+      });
 
       fireEvent.click(within(machCard).getByRole('button', { name: /EMG Unload/i }));
-      fireEvent.click(screen.getByRole('button', { name: /assignment_return Reuse Wafers/i }));
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: /assignment_return Reuse Wafers/i }));
+      });
 
       expect(within(getWipTable()).getByText(wips[0].id)).toBeInTheDocument();
     });
 
-    it('3. Wafer Path: WIP -> PROCESSING -> EMG Unload -> Scrap (Discard)', () => {
+    it('3. Wafer Path: WIP -> PROCESSING -> EMG Unload -> Scrap (Discard)', async () => {
       const wips = generateDynamicWafers(1);
       render(<LabOperationsView {...defaultProps(wips)} />);
       const machCard = getMachineCard('BAKE-OVEN-01');
 
       fireEvent.click(getWaferCheckbox(wips[0].id));
-      fireEvent.click(screen.getByRole('button', { name: /bolt Execute Dispatch/i }));
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: /bolt Execute Dispatch/i }));
+      });
 
       fireEvent.click(within(machCard).getByRole('button', { name: /EMG Unload/i }));
-      fireEvent.click(screen.getByRole('button', { name: /delete_forever Scrap Wafers/i }));
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: /delete_forever Scrap Wafers/i }));
+      });
 
       expect(within(getWipTable()).queryByText(wips[0].id)).not.toBeInTheDocument();
       expect(within(machCard).getByText('IDLE')).toBeInTheDocument();
     });
 
-    it('4. Wafer Path: Recovery from Alarm', () => {
+    it('4. Wafer Path: Recovery from Alarm', async () => {
       const wips = generateDynamicWafers(1);
       render(<LabOperationsView {...defaultProps(wips)} />);
       const machCard = getMachineCard('BAKE-OVEN-01');
 
       fireEvent.click(getWaferCheckbox(wips[0].id));
-      fireEvent.click(screen.getByRole('button', { name: /bolt Execute Dispatch/i }));
-      fireEvent.click(within(machCard).getByRole('button', { name: /Simulate Error/i }));
-      fireEvent.click(within(machCard).getByRole('button', { name: /Resolve Alarm/i }));
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: /bolt Execute Dispatch/i }));
+      });
+      await act(async () => {
+        fireEvent.click(within(machCard).getByRole('button', { name: /Simulate Error/i }));
+      });
+      await act(async () => {
+        fireEvent.click(within(machCard).getByRole('button', { name: /Resolve Alarm/i }));
+      });
 
       expect(within(machCard).getByText('PROCESSING')).toBeInTheDocument();
     });
@@ -194,23 +224,28 @@ describe('LabOperationsView - Enterprise Finite State Machine Testing Suite', ()
 
   // --- Management Tools ---
   describe('Manage Tools Sync', () => {
-    it('1. Manage Machines modal should sync status real-time', () => {
+    it('1. Manage Machines modal should sync status real-time', async () => {
       render(<LabOperationsView {...defaultProps()} />);
       const machCard = getMachineCard('TEM-01');
-      fireEvent.click(within(machCard).getByRole('button', { name: /Simulate Error/i }));
+
+      await act(async () => {
+        fireEvent.click(within(machCard).getByRole('button', { name: /Simulate Error/i }));
+      });
 
       fireEvent.click(screen.getByRole('button', { name: /settings Manage Machines/i }));
       const modal = screen.getByRole('heading', { name: /Manage Machines/i }).closest('div.bg-white') as HTMLElement;
       expect(within(modal).getByText('ALARM')).toBeInTheDocument();
     });
 
-    it('2. Manage Recipes should update list after adding', () => {
+    it('2. Manage Recipes should update list after adding', async () => {
       render(<LabOperationsView {...defaultProps()} />);
       fireEvent.click(screen.getByRole('button', { name: /list_alt Manage Recipes/i }));
 
       const input = screen.getByPlaceholderText(/New recipe name.../i);
       fireEvent.change(input, { target: { value: 'DYN-REC-2026' } });
-      fireEvent.click(screen.getByRole('button', { name: 'Add' }));
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: 'Add' }));
+      });
 
       expect(screen.getAllByText('DYN-REC-2026').length).toBeGreaterThan(0);
     });
