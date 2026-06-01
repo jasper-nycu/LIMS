@@ -4,6 +4,8 @@ import com.tsmc.lims.backend.auth.entity.Role;
 import com.tsmc.lims.backend.auth.entity.User;
 import com.tsmc.lims.backend.auth.repository.RoleRepository;
 import com.tsmc.lims.backend.auth.repository.UserRepository;
+import com.tsmc.lims.backend.fabuser.entity.Experiment;
+import com.tsmc.lims.backend.fabuser.entity.Laboratory;
 import com.tsmc.lims.backend.lab.dto.DispatchRequest;
 import com.tsmc.lims.backend.lab.dto.EmgUnloadRequest;
 import com.tsmc.lims.backend.lab.dto.MachineResponse;
@@ -17,6 +19,10 @@ import com.tsmc.lims.backend.lab.repository.WipTaskRepository;
 import com.tsmc.lims.backend.lab.service.MachineService;
 import com.tsmc.lims.backend.notification.entity.Notification;
 import com.tsmc.lims.backend.notification.repository.NotificationRepository;
+import com.tsmc.lims.backend.fabuser.repository.ExperimentRepository;
+import com.tsmc.lims.backend.fabuser.repository.FabRequestRepository;
+import com.tsmc.lims.backend.fabuser.repository.LaboratoryRepository;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -40,6 +46,9 @@ class LabOperationsFsmTest {
     @Autowired NotificationRepository notificationRepository;
     @Autowired UserRepository userRepository;
     @Autowired RoleRepository roleRepository;
+    @Autowired ExperimentRepository experimentRepository;
+    @Autowired FabRequestRepository fabRequestRepository;
+    @Autowired LaboratoryRepository laboratoryRepository;
 
     private static final String MACHINE_ID  = "BAKE-OVEN-01";
     private static final String OWNER_ID    = "EMP-OWNER-01";
@@ -49,6 +58,7 @@ class LabOperationsFsmTest {
 
     @BeforeEach
     void setUp() {
+        // 1. 原本的 Role 與 User 初始化
         roleRepository.save(role("ROLE_MACHINE_OWNER", "Machine Owner"));
         roleRepository.save(role("ROLE_LAB_MANAGER",   "Lab Supervisor"));
         roleRepository.save(role("ROLE_LAB_OPERATOR",  "Lab Operator"));
@@ -59,6 +69,16 @@ class LabOperationsFsmTest {
         userRepository.save(user(OPERATOR_ID, "ROLE_LAB_OPERATOR"));
         userRepository.save(user(FAB_ID,      "ROLE_FAB_USER"));
 
+        // ===== 2. 先建立並儲存 Laboratory 物件 =====
+        // 直接在建構子傳入 "LAB_RA"
+        Laboratory lab = new Laboratory("LAB_RA", "Research & Analysis Lab"); 
+        laboratoryRepository.save(lab);
+
+        // ===== 3. 使用有參數的建構子建立 Experiment 並儲存 =====
+        Experiment exp = new Experiment("exp_bake", lab, "High-Temp Bake Experiment");
+        experimentRepository.save(exp);
+
+        // 4. 原本的 Machine 初始化
         Machine m = new Machine();
         m.setMachineId(MACHINE_ID);
         m.setLabId("LAB_RA");
@@ -69,6 +89,7 @@ class LabOperationsFsmTest {
         m.setCurrentUtilization(0);
         machineRepository.save(m);
 
+        // 5. 原本的 WipTask 迴圈
         for (int i = 1; i <= 3; i++) {
             WipTask t = new WipTask();
             t.setRequestId("REQ-TEST-001");
