@@ -55,8 +55,12 @@ class FabManagerWorkflowIntegrationTests {
 
     @BeforeEach
     void setUp() {
-        // 確保 Schema 一定存在
+        // 1. 物理外掛：強制建立 Schema，並直接從 public 複製/建立 wip_tasks 表結構
         jdbcTemplate.execute("CREATE SCHEMA IF NOT EXISTS lims_test_fab_workflow;");
+        
+        // 這行會自動把 public.wip_tasks 的所有欄位與結構，完美複製一份到該 schema 下
+        jdbcTemplate.execute("CREATE TABLE IF NOT EXISTS lims_test_fab_workflow.wip_tasks " +
+                             "(LIKE public.wip_tasks INCLUDING ALL);");
 
         requestRepository.deleteAll();
         waferRepository.deleteAll();
