@@ -1,4 +1,4 @@
-package com.tsmc.lims.backend;
+package com.tsmc.lims.backend.lab.service;
 
 import com.tsmc.lims.backend.fabuser.entity.Experiment;
 import com.tsmc.lims.backend.fabuser.entity.FabRequest;
@@ -18,7 +18,6 @@ import com.tsmc.lims.backend.lab.entity.enums.WipStatus;
 import com.tsmc.lims.backend.lab.exception.InvalidStateTransitionException;
 import com.tsmc.lims.backend.lab.repository.MachineRepository;
 import com.tsmc.lims.backend.lab.repository.WipTaskRepository;
-import com.tsmc.lims.backend.lab.service.MachineService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
