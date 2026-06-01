@@ -49,6 +49,7 @@ class FabManagerWorkflowIntegrationTests {
     void setUp() {
         //在最前面加上這兩行，確保 PostgreSQL 容器內有這個 schema
         jdbcTemplate.execute("CREATE SCHEMA IF NOT EXISTS lims_test_fab_workflow;");
+        jdbcTemplate.execute("ALTER ROLE CURRENT_USER SET search_path TO lims_test_fab_workflow, public;");
         jdbcTemplate.execute("SET search_path TO lims_test_fab_workflow, public;");
 
         requestRepository.deleteAll();
