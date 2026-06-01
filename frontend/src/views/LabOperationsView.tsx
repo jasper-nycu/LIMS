@@ -246,10 +246,20 @@ export const LabOperationsView: React.FC<LabOperationsViewProps> = ({ language, 
 
   const handleEMGAction = async (action: 'SCRAP' | 'REUSE') => {
     const id = emgModal.machId; if (!id) return;
+    const loadedBefore = [...(sharedMachines[id]?.loaded ?? [])];
+    const machExpKey = sharedMachines[id]?.expKey ?? '';
     setEmgModal({ isOpen: false, machId: null });
     try {
       const res = await api.post(`/machines/${encodeURIComponent(id)}/emg-unload`, { action });
       applyMachineResponse(id, res.data);
+      if (action === 'REUSE' && loadedBefore.length > 0) {
+        setWips(prev => [
+          ...loadedBefore.map(code => ({
+            id: code, waferCode: code, expKey: machExpKey, priority: 'NORMAL' as const,
+          })),
+          ...prev,
+        ]);
+      }
       // Backend already saves the EMG result via notifyByRoles — just sync to show it.
       window.dispatchEvent(new CustomEvent('sync-notifications'));
     } catch (e: any) {

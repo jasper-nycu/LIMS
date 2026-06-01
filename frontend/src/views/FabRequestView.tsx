@@ -228,8 +228,13 @@ export const FabRequestView: React.FC<{
 
     setRequests([newReq, ...requests]);
 
+    onNotify(
+      language === 'en' ? 'Request Created' : '委託單已建立',
+      `${newReq.id}: ${wafers.length} wafers submitted.`,
+      'success'
+    );
     setModal({ isOpen: true, title: ui.success_title, message: `${ui.success_msg} (${newReq.id})`, type: 'success' });
-    
+
     setWafers([]); setSelectedExps([]); setRemarks('');
   };
 

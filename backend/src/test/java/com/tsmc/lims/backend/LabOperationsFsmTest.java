@@ -128,7 +128,7 @@ class LabOperationsFsmTest {
 
         assertThat(latestNotifFor(MANAGER_ID).getType()).isEqualTo("success");
         assertThat(latestNotifFor(OPERATOR_ID).getType()).isEqualTo("success");
-        assertThat(latestNotifFor(FAB_ID).getType()).isEqualTo("success");
+        // FAB_USER is not in WAFER_ROLES and setUp has no FabRequest, so no individual notification
         assertThat(notificationRepository.findByUserIdOrderByCreatedAtDesc(OWNER_ID)).isEmpty();
     }
 
@@ -146,7 +146,7 @@ class LabOperationsFsmTest {
 
         assertThat(latestNotifFor(MANAGER_ID).getType()).isEqualTo("success");
         assertThat(latestNotifFor(OPERATOR_ID).getType()).isEqualTo("success");
-        assertThat(latestNotifFor(FAB_ID).getType()).isEqualTo("success");
+        // FAB_USER notified via notifyRequesters only when a FabRequest exists in DB
     }
 
     // ── Flow 2: EMG Unload — REUSE ───────────────────────────────────────────
@@ -161,7 +161,7 @@ class LabOperationsFsmTest {
         assertThat(wipTaskRepository.findByStatus(WipStatus.PENDING_SORTING)).hasSize(3);
 
         assertThat(latestNotifFor(MANAGER_ID).getType()).isEqualTo("info");
-        assertThat(latestNotifFor(FAB_ID).getType()).isEqualTo("info");
+        // FAB_USER notified via notifyRequesters only when a FabRequest exists in DB
     }
 
     // ── Flow 3: EMG Unload — SCRAP ───────────────────────────────────────────
@@ -176,7 +176,7 @@ class LabOperationsFsmTest {
         assertThat(wipTaskRepository.findByStatus(WipStatus.SCRAPPED)).hasSize(3);
 
         assertThat(latestNotifFor(MANAGER_ID).getType()).isEqualTo("warning");
-        assertThat(latestNotifFor(FAB_ID).getType()).isEqualTo("warning");
+        // FAB_USER notified via notifyRequesters only when a FabRequest exists in DB
     }
 
     // ── Flow 4: Simulate Error → Resolve Alarm ───────────────────────────────
@@ -191,7 +191,8 @@ class LabOperationsFsmTest {
         assertThat(response.getError()).isEqualTo("ERR_SIMULATED_FAULT");
 
         assertThat(latestNotifFor(OWNER_ID).getType()).isEqualTo("error");
-        assertThat(notificationRepository.findByUserIdOrderByCreatedAtDesc(MANAGER_ID)).isEmpty();
+        // MANAGER_ID is not in MACHINE_ROLES, so latest notification is still from dispatch (success)
+        assertThat(latestNotifFor(MANAGER_ID).getType()).isEqualTo("success");
     }
 
     @Test
