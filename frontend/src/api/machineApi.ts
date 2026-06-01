@@ -27,6 +27,12 @@ export type LogEntry = {
   message: string;
 };
 
+export type UtilizationPoint = {
+  timestamp: number;
+  utilization: number;
+  state?: string;
+};
+
 export type DispatchPayload = {
   waferCodes: string[];
   machineId: string;
@@ -122,6 +128,12 @@ export async function getMachineLogs(id: string): Promise<LogEntry[]> {
 
 export function getLogsDownloadUrl(id: string): string {
   return `${base}/${encodeURIComponent(id)}/logs/download`;
+}
+
+// ── Utilization History ───────────────────────────────────────────────────
+
+export async function getUtilizationHistory(id: string, hours: number = 168): Promise<UtilizationPoint[]> {
+  return handleResponse<UtilizationPoint[]>(await fetch(`${base}/${encodeURIComponent(id)}/utilization-history?hours=${hours}`)) ?? [];
 }
 
 // ── WIP ───────────────────────────────────────────────────────────────────

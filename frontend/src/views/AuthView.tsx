@@ -154,7 +154,12 @@ export const AuthView: React.FC<AuthViewProps> = ({
       localStorage.setItem('lims_jwt', data.token);
 
       onNotify(null, 'Auth Success', ui.notif_welcome, 'success');
-      onLoginSuccess(data.user); // Pass the real UserProfile to App.tsx
+      onLoginSuccess({
+        empId: data.user.empId,
+        name: data.user.name ?? data.user.fullName ?? '',
+        role: data.user.role ?? data.user.roleEnum ?? '',
+        avatarBase64: data.user.avatarBase64,
+      });
     } catch (error) {
       setAlertModal({ 
         show: true, 

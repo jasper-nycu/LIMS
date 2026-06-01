@@ -1,20 +1,22 @@
 package com.tsmc.lims.backend;
 
+import com.tsmc.lims.backend.auth.entity.Role;
+import com.tsmc.lims.backend.auth.entity.User;
+import com.tsmc.lims.backend.auth.repository.RoleRepository;
+import com.tsmc.lims.backend.auth.repository.UserRepository;
 import com.tsmc.lims.backend.lab.dto.DispatchRequest;
 import com.tsmc.lims.backend.lab.dto.EmgUnloadRequest;
 import com.tsmc.lims.backend.lab.dto.MachineResponse;
 import com.tsmc.lims.backend.lab.entity.Machine;
-import com.tsmc.lims.backend.lab.entity.Notification;
 import com.tsmc.lims.backend.lab.entity.WipTask;
 import com.tsmc.lims.backend.lab.entity.enums.MachineState;
-import com.tsmc.lims.backend.lab.entity.enums.NotificationType;
 import com.tsmc.lims.backend.lab.entity.enums.WipStatus;
 import com.tsmc.lims.backend.lab.exception.InvalidStateTransitionException;
 import com.tsmc.lims.backend.lab.repository.MachineRepository;
-import com.tsmc.lims.backend.lab.repository.NotificationRepository;
 import com.tsmc.lims.backend.lab.repository.WipTaskRepository;
 import com.tsmc.lims.backend.lab.service.MachineService;
-import com.tsmc.lims.backend.lab.service.NotificationService;
+import com.tsmc.lims.backend.notification.entity.Notification;
+import com.tsmc.lims.backend.notification.repository.NotificationRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -33,15 +35,30 @@ import static org.assertj.core.api.Assertions.*;
 class LabOperationsFsmTest {
 
     @Autowired MachineService machineService;
-    @Autowired NotificationService notificationService;
     @Autowired MachineRepository machineRepository;
     @Autowired WipTaskRepository wipTaskRepository;
     @Autowired NotificationRepository notificationRepository;
+    @Autowired UserRepository userRepository;
+    @Autowired RoleRepository roleRepository;
 
-    private static final String MACHINE_ID = "BAKE-OVEN-01";
+    private static final String MACHINE_ID  = "BAKE-OVEN-01";
+    private static final String OWNER_ID    = "EMP-OWNER-01";
+    private static final String MANAGER_ID  = "EMP-MGR-01";
+    private static final String OPERATOR_ID = "EMP-OPR-01";
+    private static final String FAB_ID      = "EMP-FAB-01";
 
     @BeforeEach
     void setUp() {
+        roleRepository.save(role("ROLE_MACHINE_OWNER", "Machine Owner"));
+        roleRepository.save(role("ROLE_LAB_MANAGER",   "Lab Supervisor"));
+        roleRepository.save(role("ROLE_LAB_OPERATOR",  "Lab Operator"));
+        roleRepository.save(role("ROLE_FAB_USER",      "Fab User"));
+
+        userRepository.save(user(OWNER_ID,    "ROLE_MACHINE_OWNER"));
+        userRepository.save(user(MANAGER_ID,  "ROLE_LAB_MANAGER"));
+        userRepository.save(user(OPERATOR_ID, "ROLE_LAB_OPERATOR"));
+        userRepository.save(user(FAB_ID,      "ROLE_FAB_USER"));
+
         Machine m = new Machine();
         m.setMachineId(MACHINE_ID);
         m.setLabId("LAB_RA");
@@ -63,6 +80,26 @@ class LabOperationsFsmTest {
         }
     }
 
+    private Role role(String roleEnum, String roleName) {
+        Role r = new Role();
+        r.setRoleEnum(roleEnum);
+        r.setRoleName(roleName);
+        return r;
+    }
+
+    private User user(String empId, String roleEnum) {
+        User u = new User();
+        u.setEmployeeId(empId);
+        u.setFirstName("Test");
+        u.setLastName("User");
+        u.setEmail(empId.toLowerCase() + "@test.com");
+        u.setPasswordHash("hash");
+        u.setPasswordSalt("salt");
+        u.setIsActive(true);
+        u.setRole(roleRepository.getReferenceById(roleEnum));
+        return u;
+    }
+
     private MachineResponse dispatchTestWafers() {
         DispatchRequest req = new DispatchRequest();
         req.setMachineId(MACHINE_ID);
@@ -73,139 +110,126 @@ class LabOperationsFsmTest {
         return machineService.dispatch(MACHINE_ID, req);
     }
 
+    private Notification latestNotifFor(String userId) {
+        List<Notification> notifs = notificationRepository.findByUserIdOrderByCreatedAtDesc(userId);
+        assertThat(notifs).as("Notifications for " + userId).isNotEmpty();
+        return notifs.get(0);
+    }
+
     // ── API 1: Dispatch ──────────────────────────────────────────────────────
 
     @Test
-    @DisplayName("API-1: Dispatch → Machine=PROCESSING, Wafers=PROCESSING, Notification=SUCCESS")
+    @DisplayName("API-1: Dispatch → Machine=PROCESSING, Wafers=PROCESSING, wafer-roles notified with SUCCESS")
     void testDispatch() {
         MachineResponse response = dispatchTestWafers();
 
         assertThat(response.getState()).isEqualTo(MachineState.PROCESSING);
+        assertThat(wipTaskRepository.findByMachineIdAndStatus(MACHINE_ID, WipStatus.PROCESSING)).hasSize(3);
 
-        List<WipTask> processing = wipTaskRepository.findByMachineIdAndStatus(MACHINE_ID, WipStatus.PROCESSING);
-        assertThat(processing).hasSize(3);
-
-        List<Notification> notifications = notificationRepository.findByMachineIdOrderByCreatedAtDesc(MACHINE_ID);
-        assertThat(notifications).isNotEmpty();
-        assertThat(notifications.get(0).getType()).isEqualTo(NotificationType.SUCCESS);
+        assertThat(latestNotifFor(MANAGER_ID).getType()).isEqualTo("success");
+        assertThat(latestNotifFor(OPERATOR_ID).getType()).isEqualTo("success");
+        assertThat(latestNotifFor(FAB_ID).getType()).isEqualTo("success");
+        assertThat(notificationRepository.findByUserIdOrderByCreatedAtDesc(OWNER_ID)).isEmpty();
     }
 
     // ── Flow 1: Safe Unload ──────────────────────────────────────────────────
 
     @Test
-    @DisplayName("Flow-1: Unload → Machine=IDLE, Wafers=COMPLETED, Notification=SUCCESS")
+    @DisplayName("Flow-1: Unload → Machine=IDLE, Wafers=COMPLETED, wafer-roles notified with SUCCESS")
     void testSafeUnload() {
         dispatchTestWafers();
-
         MachineResponse response = machineService.unload(MACHINE_ID);
 
         assertThat(response.getState()).isEqualTo(MachineState.IDLE);
         assertThat(response.getCurrentUtil()).isEqualTo(0);
+        assertThat(wipTaskRepository.findByMachineIdAndStatus(MACHINE_ID, WipStatus.COMPLETED)).hasSize(3);
 
-        List<WipTask> completed = wipTaskRepository.findByMachineIdAndStatus(MACHINE_ID, WipStatus.COMPLETED);
-        assertThat(completed).hasSize(3);
-
-        List<Notification> notifications = notificationRepository.findByMachineIdOrderByCreatedAtDesc(MACHINE_ID);
-        assertThat(notifications.get(0).getType()).isEqualTo(NotificationType.SUCCESS);
+        assertThat(latestNotifFor(MANAGER_ID).getType()).isEqualTo("success");
+        assertThat(latestNotifFor(OPERATOR_ID).getType()).isEqualTo("success");
+        assertThat(latestNotifFor(FAB_ID).getType()).isEqualTo("success");
     }
 
     // ── Flow 2: EMG Unload — REUSE ───────────────────────────────────────────
 
     @Test
-    @DisplayName("Flow-2: EMG Unload REUSE → Machine=IDLE, Wafers=PENDING_SORTING, Notification=INFO")
+    @DisplayName("Flow-2: EMG Unload REUSE → Machine=IDLE, Wafers=PENDING_SORTING, wafer-roles notified with INFO")
     void testEmgUnloadReuse() {
         dispatchTestWafers();
-
         MachineResponse response = machineService.emgUnload(MACHINE_ID, EmgUnloadRequest.Action.REUSE);
 
         assertThat(response.getState()).isEqualTo(MachineState.IDLE);
+        assertThat(wipTaskRepository.findByStatus(WipStatus.PENDING_SORTING)).hasSize(3);
 
-        List<WipTask> pending = wipTaskRepository.findByStatus(WipStatus.PENDING_SORTING);
-        assertThat(pending).hasSize(3);
-
-        List<Notification> notifications = notificationRepository.findByMachineIdOrderByCreatedAtDesc(MACHINE_ID);
-        assertThat(notifications.get(0).getType()).isEqualTo(NotificationType.INFO);
+        assertThat(latestNotifFor(MANAGER_ID).getType()).isEqualTo("info");
+        assertThat(latestNotifFor(FAB_ID).getType()).isEqualTo("info");
     }
 
     // ── Flow 3: EMG Unload — SCRAP ───────────────────────────────────────────
 
     @Test
-    @DisplayName("Flow-3: EMG Unload SCRAP → Machine=IDLE, Wafers=SCRAPPED, Notification=WARNING")
+    @DisplayName("Flow-3: EMG Unload SCRAP → Machine=IDLE, Wafers=SCRAPPED, wafer-roles notified with WARNING")
     void testEmgUnloadScrap() {
         dispatchTestWafers();
-
         MachineResponse response = machineService.emgUnload(MACHINE_ID, EmgUnloadRequest.Action.SCRAP);
 
         assertThat(response.getState()).isEqualTo(MachineState.IDLE);
+        assertThat(wipTaskRepository.findByStatus(WipStatus.SCRAPPED)).hasSize(3);
 
-        List<WipTask> scrapped = wipTaskRepository.findByStatus(WipStatus.SCRAPPED);
-        assertThat(scrapped).hasSize(3);
-
-        List<Notification> notifications = notificationRepository.findByMachineIdOrderByCreatedAtDesc(MACHINE_ID);
-        assertThat(notifications.get(0).getType()).isEqualTo(NotificationType.WARNING);
+        assertThat(latestNotifFor(MANAGER_ID).getType()).isEqualTo("warning");
+        assertThat(latestNotifFor(FAB_ID).getType()).isEqualTo("warning");
     }
 
     // ── Flow 4: Simulate Error → Resolve Alarm ───────────────────────────────
 
     @Test
-    @DisplayName("Flow-4A: SimulateError → Machine=ALARM, Notification=ERROR")
+    @DisplayName("Flow-4A: SimulateError → Machine=ALARM, machine owner notified with ERROR")
     void testSimulateError() {
         dispatchTestWafers();
-
         MachineResponse response = machineService.simulateError(MACHINE_ID);
 
         assertThat(response.getState()).isEqualTo(MachineState.ALARM);
         assertThat(response.getError()).isEqualTo("ERR_SIMULATED_FAULT");
 
-        List<Notification> notifications = notificationRepository.findByMachineIdOrderByCreatedAtDesc(MACHINE_ID);
-        assertThat(notifications.get(0).getType()).isEqualTo(NotificationType.ERROR);
+        assertThat(latestNotifFor(OWNER_ID).getType()).isEqualTo("error");
+        assertThat(notificationRepository.findByUserIdOrderByCreatedAtDesc(MANAGER_ID)).isEmpty();
     }
 
     @Test
-    @DisplayName("Flow-4B: ResolveAlarm → Machine=PROCESSING (wafers still loaded), Notification=SUCCESS")
+    @DisplayName("Flow-4B: ResolveAlarm → Machine=PROCESSING, machine owner notified with SUCCESS")
     void testResolveAlarm() {
         dispatchTestWafers();
         machineService.simulateError(MACHINE_ID);
-
         MachineResponse response = machineService.resolveAlarm(MACHINE_ID);
 
         assertThat(response.getState()).isEqualTo(MachineState.PROCESSING);
         assertThat(response.getError()).isNull();
-
-        List<Notification> notifications = notificationRepository.findByMachineIdOrderByCreatedAtDesc(MACHINE_ID);
-        assertThat(notifications.get(0).getType()).isEqualTo(NotificationType.SUCCESS);
+        assertThat(latestNotifFor(OWNER_ID).getType()).isEqualTo("success");
     }
 
     // ── Flow 5: Simulate Error → Maintenance → Set Online ────────────────────
 
     @Test
-    @DisplayName("Flow-5B: ALARM → MAINTENANCE, Notification=INFO")
+    @DisplayName("Flow-5B: ALARM → MAINTENANCE, machine owner notified with INFO")
     void testToMaintenance() {
         dispatchTestWafers();
         machineService.simulateError(MACHINE_ID);
-
         MachineResponse response = machineService.toMaintenance(MACHINE_ID);
 
         assertThat(response.getState()).isEqualTo(MachineState.MAINTENANCE);
-
-        List<Notification> notifications = notificationRepository.findByMachineIdOrderByCreatedAtDesc(MACHINE_ID);
-        assertThat(notifications.get(0).getType()).isEqualTo(NotificationType.INFO);
+        assertThat(latestNotifFor(OWNER_ID).getType()).isEqualTo("info");
     }
 
     @Test
-    @DisplayName("Flow-5C: MAINTENANCE → PROCESSING (wafers still loaded), Notification=SUCCESS")
+    @DisplayName("Flow-5C: MAINTENANCE → PROCESSING, machine owner notified with SUCCESS")
     void testSetOnlineFromMaintenance() {
         dispatchTestWafers();
         machineService.simulateError(MACHINE_ID);
         machineService.toMaintenance(MACHINE_ID);
-
         MachineResponse response = machineService.setOnline(MACHINE_ID);
 
         assertThat(response.getState()).isEqualTo(MachineState.PROCESSING);
         assertThat(response.getError()).isNull();
-
-        List<Notification> notifications = notificationRepository.findByMachineIdOrderByCreatedAtDesc(MACHINE_ID);
-        assertThat(notifications.get(0).getType()).isEqualTo(NotificationType.SUCCESS);
+        assertThat(latestNotifFor(OWNER_ID).getType()).isEqualTo("success");
     }
 
     // ── Guards ────────────────────────────────────────────────────────────────
@@ -222,7 +246,6 @@ class LabOperationsFsmTest {
     void testCannotUnloadAlarmMachine() {
         dispatchTestWafers();
         machineService.simulateError(MACHINE_ID);
-
         assertThatThrownBy(() -> machineService.unload(MACHINE_ID))
                 .isInstanceOf(InvalidStateTransitionException.class);
     }

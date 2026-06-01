@@ -1,7 +1,6 @@
 // src/views/LabOperationsView.tsx
-import React, { useEffect, useState } from 'react';
-import * as machineApi from '../api/machineApi';
-import type { LogEntry, MachineDTO } from '../api/machineApi';
+import React, { useState, useEffect } from 'react';
+import api from '../api/axiosInstance';
 
 // --- Interfaces ---
 interface MachineState {
@@ -18,6 +17,7 @@ interface MachineState {
 
 export interface WipWafer {
   id: string;
+  waferCode: string;
   expKey: string;
   priority: 'NORMAL' | 'URGENT' | 'CRITICAL';
 }
@@ -27,29 +27,8 @@ interface LabOperationsViewProps {
   onNotify: (titleKey: string | null, fallbackTitle: string, desc: string, type: 'info' | 'success' | 'error' | 'warning') => void;
   machines?: Record<string, MachineState>;
   updateMachine?: (id: string, patch: Partial<MachineState>) => void;
-  initialWips?: WipWafer[];
-  user?: { empId: string; name: string; role: string; avatarBase64?: string; } | null;
-}
-
-// Deterministic color map for owner initials
-const OWNER_COLORS: Record<string, string> = {
-  MW: 'bg-slate-600', JS: 'bg-blue-400', SC: 'bg-sky-400',
-  RK: 'bg-red-500',  CH: 'bg-indigo-500', AS: 'bg-emerald-600', TH: 'bg-amber-500',
-};
-const ownerColor = (init: string) => OWNER_COLORS[init] ?? 'bg-slate-500';
-
-function toMachineState(dto: MachineDTO): MachineState {
-  return {
-    id: dto.id,
-    state: dto.state,
-    loaded: dto.loadedWafers ?? [],
-    cap: dto.cap,
-    expKey: dto.expKey,
-    name: dto.name,
-    error: dto.error,
-    currentUtil: dto.currentUtil,
-    owners: (dto.owners ?? []).map(init => ({ initials: init, color: ownerColor(init) })),
-  };
+  initialWips?: WipWafer[]; // For dynamic testing and injection
+  user?: { empId: string; name: string; role: string; avatarBase64?: string; } | null; // Injected for fine-grained RBAC button visibility
 }
 
 const defaultMachineState: Record<string, MachineState> = {
@@ -131,68 +110,22 @@ export const LabOperationsView: React.FC<LabOperationsViewProps> = ({ language, 
   const [showRecModal, setShowRecModal] = useState(false);
   const [warning, setWarning] = useState<{ isOpen: boolean; title: string; msg: string }>({ isOpen: false, title: '', msg: '' });
   const [emgModal, setEmgModal] = useState<{ isOpen: boolean; machId: string | null }>({ isOpen: false, machId: null });
-  const [logModal, setLogModal] = useState<{ isOpen: boolean; machId: string | null; entries: LogEntry[] }>({ isOpen: false, machId: null, entries: [] });
+  const [logModal, setLogModal] = useState<{ isOpen: boolean; machId: string | null }>({ isOpen: false, machId: null });
+  const [logEntries, setLogEntries] = useState<Array<{ timestamp: string; level: string; message: string }>>([]);
+  const [logLoading, setLogLoading] = useState(false);
+
+  useEffect(() => {
+    if (!logModal.isOpen || !logModal.machId) return;
+    setLogLoading(true);
+    api.get(`/machines/${encodeURIComponent(logModal.machId)}/logs`)
+      .then(res => {
+        const entries = res.data?.data ?? res.data ?? [];
+        setLogEntries(entries);
+      })
+      .catch(() => setLogEntries([]))
+      .finally(() => setLogLoading(false));
+  }, [logModal.isOpen, logModal.machId]);
   const [newRecipeInput, setNewRecipeInput] = useState('');
-  const [machines, setMachines] = useState<Record<string, MachineState>>({});
-  const [recipes, setRecipes] = useState<Record<string, string[]>>({});
-  const [targetMachId, setTargetMachId] = useState('');
-  const [selectedRecipeId, setSelectedRecipeId] = useState('');
-
-  // --- Data loading ---
-  const loadMachines = async () => {
-    try {
-      const dtos = await machineApi.getMachines();
-      const machMap: Record<string, MachineState> = {};
-      const recipeMap: Record<string, string[]> = {};
-      await Promise.all(dtos.map(async dto => {
-        machMap[dto.id] = toMachineState(dto);
-        recipeMap[dto.id] = await machineApi.getRecipes(dto.id);
-      }));
-      setMachines(machMap);
-      setRecipes(recipeMap);
-      if (!targetMachId && dtos.length > 0) {
-        setTargetMachId(dtos[0].id);
-      }
-    } catch (e) {
-      console.error('Failed to load machines', e);
-    }
-  };
-
-  const loadWips = async () => {
-    if (initialWips.length > 0) return;
-    try {
-      const [queue, pending] = await Promise.all([
-        machineApi.getWipQueue(),
-        machineApi.getWipPendingSorting(),
-      ]);
-      setWips([...queue, ...pending].map(t => ({
-        id: t.waferCode,
-        expKey: t.expKey,
-        priority: (t.priority as 'NORMAL' | 'URGENT' | 'CRITICAL') ?? 'NORMAL',
-      })));
-    } catch (e) {
-      console.error('Failed to load WIP', e);
-    }
-  };
-
-  const refreshMachine = async (id: string) => {
-    try {
-      const dto = await machineApi.getMachine(id);
-      setMachines(prev => ({ ...prev, [id]: toMachineState(dto) }));
-    } catch (e) {
-      console.error(`Failed to refresh machine ${id}`, e);
-    }
-  };
-
-  useEffect(() => {
-    loadMachines();
-    loadWips();
-  }, []);
-
-  useEffect(() => {
-    const list = recipes[targetMachId];
-    setSelectedRecipeId(list?.[0] ?? '');
-  }, [targetMachId, recipes]);
 
   const toggleAllWips = () => {
     if (selectedWipIds.size === wips.length && wips.length > 0) {
@@ -202,182 +135,167 @@ export const LabOperationsView: React.FC<LabOperationsViewProps> = ({ language, 
     }
   };
 
-<<<<<<< HEAD
-=======
 
-  const [recipes, setRecipes] = useState<Record<string, string[]>>({
-    'SEM-01': ['SEM-Surface-Std', 'SEM-High-Res'], 'BAKE-OVEN-01': ['Bake-150C-4H', 'Bake-250C-2H'],
-    'TEM-01': ['TEM-Lattice-View'], 'FIB-01': ['FIB-Cross-Section', 'FIB-Circuit-Edit'],
-    'E-TEST-02': ['E-TEST-Parametric', 'E-TEST-Yield'], 'XRD-01': ['XRD-Crystal-Scan']
-  });
+  const [recipes, setRecipes] = useState<Record<string, string[]>>({});
 
   const [targetMachId, setTargetMachId] = useState('BAKE-OVEN-01');
+  const [selectedRecipe, setSelectedRecipe] = useState('Bake-150C-4H');
 
->>>>>>> origin/main
+  // Reset recipe when machine changes or when recipes are loaded for the first time
+  useEffect(() => {
+    const recs = recipes[targetMachId] ?? [];
+    if (recs.length > 0) setSelectedRecipe(prev => recs.includes(prev) ? prev : recs[0]);
+  }, [targetMachId, recipes]);
+
+  // Fetch WIP queue from backend (poll every 5s so approved wafers appear automatically)
+  useEffect(() => {
+    if (!user?.empId) return;
+    const fetchWips = async () => {
+      try {
+        const res = await api.get<Array<{ id: string; waferCode?: string; waferId?: string; expKey: string; priority: string }>>('/lab/wips');
+        setWips(res.data.map(item => ({
+          id: item.id,
+          waferCode: item.waferCode ?? item.waferId ?? '',
+          expKey: item.expKey,
+          priority: item.priority as WipWafer['priority'],
+        })));
+      } catch { /* silent — user may not have permissions */ }
+    };
+    fetchWips();
+    const timer = setInterval(fetchWips, 5000);
+    return () => clearInterval(timer);
+  }, [user?.empId]);
+
+  // Fetch recipes when recipe modal opens, and whenever targetMachId changes inside the modal
+  useEffect(() => {
+    if (!showRecModal) return;
+    const ids = Object.keys(sharedMachines).length > 0
+      ? Object.keys(sharedMachines)
+      : ['SEM-01','BAKE-OVEN-01','TEM-01','FIB-01','E-TEST-02','XRD-01'];
+    ids.forEach(async (machId) => {
+      try {
+        const res = await api.get(`/machines/${encodeURIComponent(machId)}/recipes`);
+        const list: string[] = res.data?.data ?? res.data ?? [];
+        setRecipes(prev => ({ ...prev, [machId]: list }));
+      } catch { }
+    });
+  }, [showRecModal]);
+
+  // Also fetch recipes for the dispatch dropdown whenever targetMachId changes
+  useEffect(() => {
+    if (!user?.empId) return;
+    api.get(`/machines/${encodeURIComponent(targetMachId)}/recipes`)
+      .then(res => {
+        const list: string[] = res.data?.data ?? res.data ?? [];
+        setRecipes(prev => ({ ...prev, [targetMachId]: list }));
+      })
+      .catch(() => {});
+  }, [targetMachId, user?.empId]);
+
+  // Helper: apply backend MachineResponse to shared state.
+  // POST endpoints return ApiResponse<MachineResponse> (unwrap .data); GET returns direct.
+  const applyMachineResponse = (machId: string, responseBody: any) => {
+    const m = responseBody?.data ?? responseBody;
+    applyUpdate(machId, {
+      state: m.state,
+      loaded: m.loadedWafers ?? [],
+      currentUtil: m.currentUtil,
+      error: m.error ?? null,
+    });
+  };
+
   // --- Handlers ---
   const handleDispatch = async () => {
     if (selectedWipIds.size === 0) return setWarning({ isOpen: true, title: 'Selection Error', msg: ui.warn_select });
-<<<<<<< HEAD
-    const mach = machines[targetMachId];
-    if (!mach) return;
-=======
     const mach = sharedMachines[targetMachId];
->>>>>>> origin/main
     const selectedList = wips.filter(w => selectedWipIds.has(w.id));
 
     if (selectedList.some(w => w.expKey !== mach.expKey)) {
-      return setWarning({ isOpen: true, title: ui.warn_title, msg: ui.warn_desc + ui[mach.expKey as keyof typeof ui] });
+        return setWarning({ isOpen: true, title: ui.warn_title, msg: ui.warn_desc + ui[mach.expKey as keyof typeof ui] });
     }
+
     if (mach.loaded.length + selectedWipIds.size > mach.cap) {
-      return setWarning({ isOpen: true, title: ui.cap_err_title, msg: ui.cap_err_msg });
+        return setWarning({ isOpen: true, title: ui.cap_err_title, msg: ui.cap_err_msg });
     }
+
     if (mach.state === 'PROCESSING') return setWarning({ isOpen: true, title: 'Machine Busy', msg: 'Machine is currently processing.' });
 
-<<<<<<< HEAD
+    if (!selectedRecipe) return setWarning({ isOpen: true, title: 'No Recipe', msg: 'Please select a recipe before dispatching.' });
+
+    const waferCodes = selectedList.map(w => w.waferCode);
+
     try {
-      const dto = await machineApi.dispatch(targetMachId, {
-        waferCodes: Array.from(selectedWipIds),
+      const res = await api.post(`/machines/${encodeURIComponent(targetMachId)}/dispatch`, {
+        waferCodes,
         machineId: targetMachId,
-        recipeId: selectedRecipeId || (recipes[targetMachId]?.[0] ?? 'Default'),
+        recipeId: selectedRecipe,
         expKey: mach.expKey,
       });
-      setMachines(prev => ({ ...prev, [targetMachId]: toMachineState(dto) }));
-      setWips(wips.filter(w => !selectedWipIds.has(w.id)));
+      applyMachineResponse(targetMachId, res.data);
+      setWips(prev => prev.filter(w => !selectedWipIds.has(w.id)));
       setSelectedWips(new Set());
-      onNotify(null, 'Dispatch Success', `${selectedWipIds.size} wafers sent to ${targetMachId}`, 'success');
-    } catch (e) {
-      setWarning({ isOpen: true, title: 'Dispatch Error', msg: (e as Error).message });
+      onNotify(null, 'Dispatch Success', `${waferCodes.length} wafers sent to ${targetMachId}`, 'success');
+    } catch (e: any) {
+      onNotify(null, 'Dispatch Failed', e?.response?.data?.message || 'Could not dispatch wafers.', 'error');
     }
-=======
-    if (mach.loaded.length + selectedWipIds.size > mach.cap) return setWarning({ isOpen: true, title: 'Capacity Error', msg: 'Exceeded machine capacity.' });
-    
-    applyUpdate(targetMachId, { state: 'PROCESSING', loaded: [...mach.loaded, ...Array.from(selectedWipIds)], currentUtil: Math.round(((mach.loaded.length + selectedWipIds.size) / mach.cap) * 100) });
-    setWips(wips.filter(w => !selectedWipIds.has(w.id)));
-    setSelectedWips(new Set());
-    onNotify(null, 'Dispatch Success', `${selectedWipIds.size} wafers sent to ${targetMachId}`, 'success');
->>>>>>> origin/main
   };
 
   const handleEMGAction = async (action: 'SCRAP' | 'REUSE') => {
     const id = emgModal.machId; if (!id) return;
-    const mach = sharedMachines[id];
-
-<<<<<<< HEAD
-    try {
-      const dto = await machineApi.emgUnload(id, action);
-      setMachines(prev => ({ ...prev, [id]: toMachineState(dto) }));
-
-      if (action === 'REUSE') {
-        const returned: WipWafer[] = mach.loaded.map(wId => ({ id: wId, expKey: mach.expKey, priority: 'NORMAL' }));
-        setWips(prev => [...returned, ...prev]);
-        onNotify(null, language === 'en' ? 'Wafers Reused' : '晶圓重用', `${mach.loaded.length} ${language === 'en' ? 'wafers returned to WIP.' : '片晶圓已回到 WIP。'}`, 'info');
-      } else {
-=======
-    if (action === 'REUSE') {
-        // Correct reuse logic: Re-insert into WIP with the original machine expKey
-        const returned: WipWafer[] = mach.loaded.map(wId => ({ 
-            id: wId, 
-            expKey: mach.expKey, 
-            priority: 'NORMAL' 
-        }));
-        setWips([...returned, ...wips]);
-        applyUpdate(id, { state: 'IDLE', loaded: [], currentUtil: 0 });
-        onNotify(null, language === 'en' ? 'Wafers Reused' : '晶圓重用', `${mach.loaded.length} ${language === 'en' ? 'wafers returned to WIP.' : '片晶圓已回到 WIP。'}`, 'info');
-    } else {
-        // Correct Scrap Logic: Return to IDLE directly without fault code per instructions
-        applyUpdate(id, { state: 'IDLE', loaded: [], error: null, currentUtil: 0 });
->>>>>>> origin/main
-        onNotify(null, language === 'en' ? 'Wafers Scrapped' : '晶圓作廢', `${mach.loaded.length} ${language === 'en' ? 'wafers discarded.' : '片晶圓已根據政策作廢。'}`, 'warning');
-      }
-    } catch (e) {
-      setWarning({ isOpen: true, title: 'EMG Unload Error', msg: (e as Error).message });
-    }
     setEmgModal({ isOpen: false, machId: null });
+    try {
+      const res = await api.post(`/machines/${encodeURIComponent(id)}/emg-unload`, { action });
+      applyMachineResponse(id, res.data);
+      if (action === 'REUSE') {
+        onNotify(null, language === 'en' ? 'Wafers Reused' : '晶圓重用', `Wafers returned to WIP from ${id}.`, 'info');
+      } else {
+        onNotify(null, language === 'en' ? 'Wafers Scrapped' : '晶圓作廢', `Wafers discarded from ${id}.`, 'warning');
+      }
+    } catch (e: any) {
+      onNotify(null, 'EMG Unload Failed', e?.response?.data?.message || 'Could not complete EMG unload.', 'error');
+    }
   };
 
-<<<<<<< HEAD
   const toggleAlarm = async (id: string) => {
-    const m = machines[id];
+    const m = sharedMachines[id];
     try {
       if (m.state === 'ALARM') {
-        const dto = await machineApi.resolveAlarm(id);
-        setMachines(prev => ({ ...prev, [id]: toMachineState(dto) }));
-        onNotify(null, 'Alarm Resolved', `${id} is back online.`, 'success', 'owners');
-      } else {
-        const dto = await machineApi.simulateError(id);
-        setMachines(prev => ({ ...prev, [id]: toMachineState(dto) }));
-        onNotify(null, language === 'en' ? '🚨 System Alert' : '🚨 系統警報', `${id} ${language === 'en' ? 'reported a simulated fault.' : '觸發模擬故障。'}`, 'error', 'owners');
-      }
-    } catch (e) {
-      setWarning({ isOpen: true, title: 'Error', msg: (e as Error).message });
-=======
-  const toggleAlarm = (id: string) => {
-    const m = sharedMachines[id];
-    if (m.state === 'ALARM') {
-        const next = m.loaded.length > 0 ? 'PROCESSING' : 'IDLE';
-        applyUpdate(id, { state: next, error: null, currentUtil: m.loaded.length > 0 ? Math.round((m.loaded.length / m.cap) * 100) : 0 });
+        const res = await api.post(`/machines/${encodeURIComponent(id)}/resolve-alarm`);
+        applyMachineResponse(id, res.data);
         onNotify(null, 'Alarm Resolved', `${id} is back online.`, 'success');
-    } else {
-        // Requirement: Keep loaded wafers during alarm
-        applyUpdate(id, { state: 'ALARM', loaded: [...m.loaded], error: 'ERR_SIMULATED_FAULT', currentUtil: 0 });
-        onNotify(null, language === 'en' ? '🚨 System Alert' : '🚨 系統警報', `${id} ${language === 'en' ? 'reported a simulated fault.' : '觸發模擬故障。'}`, 'error');
->>>>>>> origin/main
+      } else {
+        const res = await api.post(`/machines/${encodeURIComponent(id)}/simulate-error`);
+        applyMachineResponse(id, res.data);
+        onNotify(null, language === 'en' ? 'System Alert' : '系統警報', `${id} ${language === 'en' ? 'reported a simulated fault.' : '觸發模擬故障。'}`, 'error');
+      }
+    } catch (e: any) {
+      onNotify(null, 'Action Failed', e?.response?.data?.message || 'Could not update alarm state.', 'error');
     }
   };
 
   const getBadgeStyle = (state: string) => {
     switch (state) {
-      case 'PROCESSING': return 'bg-emerald-100 text-emerald-700';
-      case 'ALARM': return 'bg-red-100 text-red-700';
-      case 'MAINTENANCE': return 'bg-slate-200 text-slate-600';
-      default: return 'bg-slate-100 text-slate-600';
+        case 'PROCESSING': return 'bg-emerald-100 text-emerald-700';
+        case 'ALARM': return 'bg-red-100 text-red-700';
+        case 'MAINTENANCE': return 'bg-slate-200 text-slate-600';
+        default: return 'bg-slate-100 text-slate-600';
     }
   };
 
-<<<<<<< HEAD
   const toggleMaint = async (id: string) => {
-    const m = machines[id];
-=======
-  const toggleMaint = (id: string) => {
     const m = sharedMachines[id];
-    // Strict FSM: Processing machines cannot enter maintenance
->>>>>>> origin/main
     if (m.state === 'PROCESSING') {
       setWarning({ isOpen: true, title: 'Action Denied', msg: ui.err_maint });
       return;
     }
-    try {
-      const isMaint = m.state === 'MAINTENANCE';
-      const dto = isMaint ? await machineApi.setOnline(id) : await machineApi.toMaintenance(id);
-      setMachines(prev => ({ ...prev, [id]: toMachineState(dto) }));
-      onNotify(null, isMaint ? 'Machine Online' : 'Machine Offline', `${id} is now ${isMaint ? 'Online' : 'under Maintenance'}.`, isMaint ? 'success' : 'info');
-    } catch (e) {
-      setWarning({ isOpen: true, title: 'Error', msg: (e as Error).message });
-    }
-  };
-
-<<<<<<< HEAD
-  const openLogModal = async (machId: string) => {
-    setLogModal({ isOpen: true, machId, entries: [] });
-    try {
-      const entries = await machineApi.getMachineLogs(machId);
-      setLogModal(prev => ({ ...prev, entries }));
-    } catch {
-      // show empty log
-    }
-=======
     const isMaint = m.state === 'MAINTENANCE';
-    const nextState = isMaint ? (m.loaded.length > 0 ? 'PROCESSING' : 'IDLE') : 'MAINTENANCE';
-    
-    applyUpdate(id, { state: nextState, error: null, currentUtil: nextState === 'MAINTENANCE' ? 0 : m.currentUtil });
-
-    onNotify(
-        null, 
-        isMaint ? 'Machine Online' : 'Machine Offline', 
-        `${id} is now ${isMaint ? 'Online' : 'under Maintenance'}.`, 
-        isMaint ? 'success' : 'info'
-    );
->>>>>>> origin/main
+    try {
+      const res = await api.post(`/machines/${encodeURIComponent(id)}/${isMaint ? 'online' : 'maintenance'}`);
+      applyMachineResponse(id, res.data);
+      onNotify(null, isMaint ? 'Machine Online' : 'Machine Offline', `${id} is now ${isMaint ? 'Online' : 'under Maintenance'}.`, isMaint ? 'success' : 'info');
+    } catch (e: any) {
+      onNotify(null, 'Action Failed', e?.response?.data?.message || 'Could not update maintenance state.', 'error');
+    }
   };
 
   return (
@@ -392,8 +310,8 @@ export const LabOperationsView: React.FC<LabOperationsViewProps> = ({ language, 
               <thead className="bg-slate-50 text-slate-500 uppercase text-[10px] sticky top-0 z-10 shadow-sm">
                 <tr>
                   <th className="px-4 md:px-6 py-3 w-10">
-                    <input
-                      type="checkbox"
+                    <input 
+                      type="checkbox" 
                       className="rounded border-slate-300 text-corporate-blue focus:ring-corporate-blue h-4 w-4 cursor-pointer"
                       checked={wips.length > 0 && selectedWipIds.size === wips.length}
                       onChange={toggleAllWips}
@@ -408,23 +326,23 @@ export const LabOperationsView: React.FC<LabOperationsViewProps> = ({ language, 
                 {wips.length > 0 ? wips.map(w => (
                   <tr key={w.id} className={`hover:bg-slate-50 transition-colors ${selectedWipIds.has(w.id) ? 'bg-blue-50/40' : ''}`}>
                     <td className="px-6 py-4">
-                        <input
-                            type="checkbox"
-                            className="rounded border-slate-300 text-corporate-blue focus:ring-corporate-blue h-4 w-4 cursor-pointer"
-                            checked={selectedWipIds.has(w.id)}
+                        <input 
+                            type="checkbox" 
+                            className="rounded border-slate-300 text-corporate-blue focus:ring-corporate-blue h-4 w-4 cursor-pointer" 
+                            checked={selectedWipIds.has(w.id)} 
                             onChange={() => {
-                                const n = new Set(selectedWipIds);
-                                n.has(w.id) ? n.delete(w.id) : n.add(w.id);
+                                const n = new Set(selectedWipIds); 
+                                n.has(w.id) ? n.delete(w.id) : n.add(w.id); 
                                 setSelectedWips(n);
-                            }}
+                            }} 
                         />
                     </td>
-                    <td className="px-6 py-4 font-mono font-bold text-slate-700">{w.id}</td>
-                    <td className="px-6 py-4 text-xs text-slate-500">{ui[w.expKey as keyof typeof ui] ?? w.expKey ?? '—'}</td>
+                    <td className="px-6 py-4 font-mono font-bold text-slate-700">{w.waferCode}</td>
+                    <td className="px-6 py-4 text-xs text-slate-500">{ui[w.expKey as keyof typeof ui]}</td>
                     <td className="px-6 py-4">
                       <span className={`px-2 py-1 rounded text-[10px] font-bold ${
-                        w.priority === 'CRITICAL' ? 'bg-red-50 text-red-600' :
-                        w.priority === 'URGENT' ? 'bg-amber-50 text-amber-600' :
+                        w.priority === 'CRITICAL' ? 'bg-red-50 text-red-600' : 
+                        w.priority === 'URGENT' ? 'bg-amber-50 text-amber-600' : 
                         'bg-slate-100 text-slate-600'
                       }`}>
                         {w.priority}
@@ -451,8 +369,8 @@ export const LabOperationsView: React.FC<LabOperationsViewProps> = ({ language, 
             <div className="space-y-1">
               <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{ui.sel_count}</label>
               <div className="p-3 border border-slate-200 rounded-xl bg-slate-50 text-sm font-mono text-corporate-blue font-bold tracking-wider">
-                {language === 'en'
-                  ? `${selectedWipIds.size} Wafers Selected`
+                {language === 'en' 
+                  ? `${selectedWipIds.size} Wafers Selected` 
                   : `已選擇 ${selectedWipIds.size} 片晶圓`}
               </div>
             </div>
@@ -462,19 +380,9 @@ export const LabOperationsView: React.FC<LabOperationsViewProps> = ({ language, 
               </select>
             </div>
             <div className="space-y-1"><label htmlFor="rec-op-sel" className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{ui.recipe}</label>
-              <select id="rec-op-sel" className="w-full rounded-xl border-slate-200 text-sm text-slate-700 cursor-pointer" value={selectedRecipeId} onChange={e => setSelectedRecipeId(e.target.value)}>
-                {(recipes[targetMachId] || ['Default']).map(r => <option key={r} value={r}>{r}</option>)}
-              </select>
+              <select id="rec-op-sel" className="w-full rounded-xl border-slate-200 text-sm text-slate-700 cursor-pointer" value={selectedRecipe} onChange={e => setSelectedRecipe(e.target.value)}>{(recipes[targetMachId] || ['Default']).map(r => <option key={r} value={r}>{r}</option>)}</select>
             </div>
           </div>
-<<<<<<< HEAD
-          <button
-            onClick={handleDispatch}
-            className="w-full bg-corporate-blue text-white py-4 rounded-xl font-bold hover:bg-blue-700 shadow-lg shadow-blue-100 flex justify-center items-center gap-2 active:scale-95 transition-all cursor-pointer"
-          >
-            <span className="material-symbols-outlined">bolt</span> {ui.execute}
-          </button>
-=======
           {/* RBAC Compliance: Enforce distinct split between administrative supervision and shop-floor execution */}
           {user?.role !== 'ROLE_LAB_MANAGER' && (
             <button 
@@ -484,11 +392,10 @@ export const LabOperationsView: React.FC<LabOperationsViewProps> = ({ language, 
               <span className="material-symbols-outlined">bolt</span> {ui.execute}
             </button>
           )}
->>>>>>> origin/main
         </div>
       </div>
 
-      {/* FSM Cards */}
+      {/* FSM Cards (Requirement 1: Badge logic) */}
       <div>
         <div className="flex justify-between items-center mb-6 mt-6"><h2 className="font-bold text-lg text-slate-800">{ui.fsm}</h2>
           <div className="flex gap-2">
@@ -499,12 +406,12 @@ export const LabOperationsView: React.FC<LabOperationsViewProps> = ({ language, 
               <span className="material-symbols-outlined text-[16px]">list_alt</span> {ui.btn_manage_recipe}
             </button>
           </div></div>
-
+        
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {Object.values(sharedMachines).map(m => (
             <div key={m.id} className={`bg-white rounded-2xl p-5 border-2 relative overflow-hidden flex flex-col h-[380px] transition-all ${
-                m.state === 'PROCESSING' ? 'border-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.15)]' :
-                m.state === 'ALARM' ? 'border-red-300 bg-red-50/20' :
+                m.state === 'PROCESSING' ? 'border-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.15)]' : 
+                m.state === 'ALARM' ? 'border-red-300 bg-red-50/20' : 
                 m.state === 'MAINTENANCE' ? 'border-slate-300 bg-slate-100' : 'border-slate-100 shadow-sm'
             }`}>
               {m.state === 'PROCESSING' && <div className="absolute top-0 left-0 w-full h-1 bg-emerald-500 animate-pulse"></div>}
@@ -512,7 +419,7 @@ export const LabOperationsView: React.FC<LabOperationsViewProps> = ({ language, 
                 <span className={`px-2 py-1 rounded text-[10px] font-bold shadow-sm ${getBadgeStyle(m.state)}`}>
                   {ui[m.state.toLowerCase() as keyof typeof ui] || m.state}
                 </span></div>
-
+              
               <div className="flex-1 overflow-y-auto custom-scrollbar mb-4 pr-1">
                 {m.state === 'IDLE' ? (
                   <div className="bg-slate-50 rounded p-2 border border-slate-100 border-dashed flex items-center justify-center h-16"><p className="text-xs font-mono text-slate-400">{ui.idle_mode}</p></div>
@@ -532,13 +439,13 @@ export const LabOperationsView: React.FC<LabOperationsViewProps> = ({ language, 
                 <div className="flex flex-col gap-2">
                     {m.state === 'MAINTENANCE' ? (
                       <div className="flex gap-2 w-full">
-                        <button
-                          onClick={() => openLogModal(m.id)}
+                        <button 
+                          onClick={() => setLogModal({ isOpen: true, machId: m.id })}
                           className="py-2 text-[10px] font-bold rounded-lg border bg-slate-50 text-slate-600 flex-1 hover:bg-slate-100 cursor-pointer transition-colors"
                         >
                           {ui.btn_view_logs}
                         </button>
-                        <button
+                        <button 
                           onClick={() => toggleMaint(m.id)}
                           className="py-2 text-[10px] font-bold rounded-lg border bg-slate-300 text-slate-700 border-transparent hover:bg-slate-400 flex-1 cursor-pointer transition-colors shadow-sm"
                         >
@@ -548,31 +455,23 @@ export const LabOperationsView: React.FC<LabOperationsViewProps> = ({ language, 
                     ) : (
                       <>
                         <div className="flex gap-2">
-                          <button
-                            onClick={() => openLogModal(m.id)}
+                          <button 
+                            onClick={() => setLogModal({ isOpen: true, machId: m.id })}
                             className="py-2 text-[10px] font-bold rounded-lg border bg-slate-50 text-slate-600 flex-1 hover:bg-slate-100 cursor-pointer transition-colors"
                             >
                             {ui.btn_view_logs}
                             </button>
                           {m.state === 'PROCESSING' && (
-<<<<<<< HEAD
                             <button
                               onClick={async () => {
                                 try {
-                                  const dto = await machineApi.unload(m.id);
-                                  setMachines(prev => ({ ...prev, [m.id]: toMachineState(dto) }));
+                                  const res = await api.post(`/machines/${encodeURIComponent(m.id)}/unload`);
+                                  applyMachineResponse(m.id, res.data);
                                   onNotify(null, language === 'en' ? 'Unload Success' : '下貨成功', `${m.id} ${language === 'en' ? 'wafers collected.' : '晶圓已卸載。'}`, 'success');
-                                } catch (e) {
-                                  setWarning({ isOpen: true, title: 'Unload Error', msg: (e as Error).message });
+                                } catch (e: any) {
+                                  onNotify(null, 'Unload Failed', e?.response?.data?.message || 'Could not unload.', 'error');
                                 }
                               }}
-=======
-                            <button 
-                              onClick={() => {
-                                applyUpdate(m.id, { state: 'IDLE', loaded: [], currentUtil: 0, error: null });
-                                onNotify(null, language === 'en' ? 'Unload Success' : '下貨成功', `${m.id} ${language === 'en' ? 'wafers collected.' : '晶圓已卸載。'}`, 'success');
-                              }} 
->>>>>>> origin/main
                               className="py-2 text-[10px] font-bold rounded-lg border bg-emerald-50 text-emerald-600 border-emerald-200 flex-1 cursor-pointer hover:bg-emerald-100 transition-colors"
                             >
                               {ui.unload}
@@ -580,14 +479,21 @@ export const LabOperationsView: React.FC<LabOperationsViewProps> = ({ language, 
                           )}
                         </div>
                         <div className="flex gap-2">
-                          {m.state === 'PROCESSING' && (
+                          {m.state === 'PROCESSING' ? (
                             <button
                               onClick={() => setEmgModal({ isOpen: true, machId: m.id })}
                               className="py-2 text-[10px] font-bold rounded-lg border bg-amber-50 text-amber-600 border-amber-100 flex-1 cursor-pointer hover:bg-amber-100 transition-colors"
                             >
                               {ui.emg_unload}
                             </button>
-                          )}
+                          ) : (m.state === 'IDLE' || m.state === 'ALARM') ? (
+                            <button
+                              onClick={() => toggleMaint(m.id)}
+                              className="py-2 text-[10px] font-bold rounded-lg border bg-slate-100 text-slate-600 border-slate-200 flex-1 cursor-pointer hover:bg-slate-200 transition-colors"
+                            >
+                              {language === 'en' ? 'Maintenance' : '進入維修'}
+                            </button>
+                          ) : null}
                           <button
                             onClick={() => toggleAlarm(m.id)}
                             className={`py-2 text-[10px] font-bold rounded-lg border shadow-sm flex-1 cursor-pointer transition-all ${
@@ -611,7 +517,7 @@ export const LabOperationsView: React.FC<LabOperationsViewProps> = ({ language, 
       </div>
     </div>
 
-      {/* --- Modals --- */}
+      {/* --- Modals Moved Outside Animation Container to Fix Full-screen Issue --- */}
       {/* Log Viewer Modal */}
       {logModal.isOpen && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-[fadeIn_0.2s_ease-out]">
@@ -625,41 +531,53 @@ export const LabOperationsView: React.FC<LabOperationsViewProps> = ({ language, 
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <a
-                  href={logModal.machId ? machineApi.getLogsDownloadUrl(logModal.machId) : '#'}
-                  download
-                  className="p-2 hover:bg-white rounded-full text-slate-400 hover:text-corporate-blue transition-all cursor-pointer"
-                  title={ui.log_download}
-                >
+                <button
+                  onClick={async () => {
+                    if (!logModal.machId) return;
+                    const res = await api.get(`/machines/${encodeURIComponent(logModal.machId)}/logs/download`, { responseType: 'blob' });
+                    const url = URL.createObjectURL(res.data);
+                    const a = document.createElement('a');
+                    a.href = url; a.download = `${logModal.machId}-logs.txt`; a.click();
+                    URL.revokeObjectURL(url);
+                  }}
+                  className="p-2 hover:bg-white rounded-full text-slate-400 hover:text-corporate-blue transition-all cursor-pointer" title={ui.log_download}>
                   <span className="material-symbols-outlined">download</span>
-                </a>
-                <button onClick={() => setLogModal({ isOpen: false, machId: null, entries: [] })} className="p-2 hover:bg-white rounded-full text-slate-400 hover:text-red-500 transition-all cursor-pointer">
+                </button>
+                <button onClick={() => setLogModal({ isOpen: false, machId: null })} className="p-2 hover:bg-white rounded-full text-slate-400 hover:text-red-500 transition-all cursor-pointer">
                   <span className="material-symbols-outlined">close</span>
                 </button>
               </div>
             </div>
             <div className="p-6 bg-slate-900 overflow-y-auto max-h-[400px] custom-scrollbar font-mono text-xs leading-relaxed">
-              <div className="space-y-1 text-emerald-400/90">
-                {logModal.entries.length > 0 ? logModal.entries.map((entry, i) => (
-                  <p key={i}>
-                    <span className="text-slate-500">[{entry.timestamp.replace('T', ' ').substring(0, 19)}]</span>
-                    {' '}<span className={
+              {logLoading ? (
+                <p className="text-slate-500 animate-pulse">Loading logs...</p>
+              ) : logEntries.length === 0 ? (
+                <p className="text-slate-600 italic">No log entries for this machine.</p>
+              ) : (
+                <div className="space-y-1">
+                  {logEntries.map((entry, i) => {
+                    const ts = String(entry.timestamp).replace('T', ' ').substring(0, 19);
+                    const levelColor =
                       entry.level === 'ALARM' ? 'text-red-400' :
+                      entry.level === 'OPS'   ? 'text-emerald-400' :
                       entry.level === 'MAINT' ? 'text-amber-400' :
-                      entry.level === 'CFG'   ? 'text-blue-400' :
-                      'text-emerald-400'
-                    }>{entry.level}:</span>
-                    {' '}{entry.message}
-                  </p>
-                )) : (
-                  <p className="text-slate-500 italic">No log entries yet.</p>
-                )}
-              </div>
+                      entry.level === 'CFG'   ? 'text-purple-400' :
+                      'text-blue-400';
+                    return (
+                      <p key={i}>
+                        <span className="text-slate-500">[{ts}]</span>{' '}
+                        <span className={`font-bold ${levelColor}`}>{entry.level}:</span>{' '}
+                        <span className="text-slate-300">{entry.message}</span>
+                      </p>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </div>
         </div>
       )}
-
+      
       {warning.isOpen && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-[fadeIn_0.2s_ease-out]">
           <div className="bg-white rounded-3xl shadow-2xl w-full max-w-sm p-8 text-center space-y-4 scale-100 animate-[zoomIn_0.2s_ease-out]">
@@ -668,8 +586,8 @@ export const LabOperationsView: React.FC<LabOperationsViewProps> = ({ language, 
             </div>
             <h3 className="text-xl font-bold text-slate-900">{warning.title}</h3>
             <p className="text-sm text-slate-500 font-medium leading-relaxed">{warning.msg}</p>
-            <button
-              onClick={() => setWarning({...warning, isOpen: false})}
+            <button 
+              onClick={() => setWarning({...warning, isOpen: false})} 
               className="w-full mt-4 px-4 py-3 bg-slate-900 text-white text-sm font-bold rounded-xl hover:bg-slate-800 transition-all shadow-md active:scale-95 cursor-pointer"
             >
               Understood
@@ -722,41 +640,30 @@ export const LabOperationsView: React.FC<LabOperationsViewProps> = ({ language, 
             <div className="p-6 border-b border-slate-100 flex justify-between items-center"><h3 className="font-bold text-lg flex items-center gap-2"><span className="material-symbols-outlined">list_alt</span> {ui.modal_rec_title}</h3><button onClick={() => setShowRecModal(false)} className="text-slate-400 cursor-pointer"><span className="material-symbols-outlined">close</span></button></div>
             <div className="p-6 space-y-4"><select className="w-full rounded-xl border-slate-200 text-sm cursor-pointer" onChange={(e) => setTargetMachId(e.target.value)} value={targetMachId}>{Object.keys(recipes).map(id => <option key={id} value={id}>{id}</option>)}</select>
               <div className="space-y-2 bg-slate-50 p-4 rounded-xl border border-slate-100 max-h-48 overflow-y-auto custom-scrollbar">
-                {recipes[targetMachId]?.map(r => (
-                  <div key={r} className="flex justify-between items-center bg-white p-2 rounded-lg border border-slate-100">
-                    <span className="text-sm font-mono text-slate-700">{r}</span>
-                    <button onClick={async () => {
-                      try {
-                        const updated = await machineApi.deleteRecipe(targetMachId, r);
-                        setRecipes(prev => ({ ...prev, [targetMachId]: updated }));
-                      } catch (e) {
-                        setWarning({ isOpen: true, title: 'Recipe Error', msg: (e as Error).message });
-                      }
-                    }} className="text-slate-400 hover:text-red-500 cursor-pointer">
-                      <span className="material-symbols-outlined text-[16px]">delete</span>
-                    </button>
-                  </div>
-                ))}
+                {recipes[targetMachId]?.map(r => (<div key={r} className="flex justify-between items-center bg-white p-2 rounded-lg border border-slate-100"><span className="text-sm font-mono text-slate-700">{r}</span><button onClick={async () => {
+                    try {
+                      const res = await api.delete(`/machines/${encodeURIComponent(targetMachId)}/recipes/${encodeURIComponent(r)}`);
+                      const list: string[] = res.data?.data ?? res.data ?? [];
+                      setRecipes(prev => ({ ...prev, [targetMachId]: list }));
+                      onNotify(null, language === 'en' ? 'Recipe Removed' : '參數已刪除', `Recipe '${r}' removed from ${targetMachId}.`, 'warning');
+                    } catch (e: any) { onNotify(null, 'Failed', e?.response?.data?.message || 'Could not delete recipe.', 'error'); }
+                  }} className="text-slate-400 hover:text-red-500 cursor-pointer"><span className="material-symbols-outlined text-[16px]">delete</span></button></div>))}
               </div>
-              <div className="flex gap-2">
-                <input type="text" className="flex-1 rounded-xl border-slate-200 text-sm" placeholder="New recipe name..." value={newRecipeInput} onChange={e => setNewRecipeInput(e.target.value)} />
-                <button
+              <div className="flex gap-2"><input type="text" className="flex-1 rounded-xl border-slate-200 text-sm" placeholder="New recipe name..." value={newRecipeInput} onChange={e => setNewRecipeInput(e.target.value)} /><button 
                   onClick={async () => {
                     if (!newRecipeInput.trim()) return;
                     try {
-                      const updated = await machineApi.addRecipe(targetMachId, newRecipeInput.trim());
-                      setRecipes(prev => ({ ...prev, [targetMachId]: updated }));
+                      const res = await api.post(`/machines/${encodeURIComponent(targetMachId)}/recipes`, { name: newRecipeInput.trim() });
+                      const list: string[] = res.data?.data ?? res.data ?? [];
+                      setRecipes(prev => ({ ...prev, [targetMachId]: list }));
                       setNewRecipeInput('');
                       onNotify(null, language === 'en' ? 'Recipe Added' : '參數新增成功', ui.notif_rec_added, 'success');
-                    } catch (e) {
-                      setWarning({ isOpen: true, title: 'Recipe Error', msg: (e as Error).message });
-                    }
-                  }}
+                    } catch (e: any) { onNotify(null, 'Failed', e?.response?.data?.message || 'Could not add recipe.', 'error'); }
+                  }} 
                   className="px-4 py-2 bg-corporate-blue text-white text-sm font-bold rounded-xl hover:bg-blue-700 cursor-pointer"
                 >
                   Add
-                </button>
-              </div>
+                </button></div>
             </div>
           </div>
         </div>

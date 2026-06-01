@@ -1,9 +1,12 @@
 package com.tsmc.lims.backend.machine.controller;
 
-import com.tsmc.lims.backend.machine.dto.MachineDashboardDto;
-import com.tsmc.lims.backend.machine.service.MachineService;
+import com.tsmc.lims.backend.lab.controller.MachineController;
+import com.tsmc.lims.backend.lab.dto.MachineResponse;
+import com.tsmc.lims.backend.lab.entity.enums.MachineState;
+import com.tsmc.lims.backend.lab.service.MachineLogService;
+import com.tsmc.lims.backend.lab.service.MachineService;
 import org.junit.jupiter.api.Test;
-import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.http.ResponseEntity;
 
 import java.util.List;
 
@@ -14,29 +17,31 @@ import static org.mockito.Mockito.when;
 class MachineControllerTest {
 
     @Test
-    void getMachinesDelegatesToMachineService() {
-        // Arrange
+    void getAll_delegatesToMachineServiceAndReturnsRawList() {
         MachineService machineService = mock(MachineService.class);
-        MachineController controller = new MachineController();
-        ReflectionTestUtils.setField(controller, "machineService", machineService);
+        MachineLogService machineLogService = mock(MachineLogService.class);
+        MachineController controller = new MachineController(machineService, machineLogService);
 
-        // Prepare a mock DTO response
-        MachineDashboardDto mockDto = new MachineDashboardDto(
-                "SEM-01", "Surface Scan (SEM)", 25, "PROCESSING", 72, 18, null
+        MachineResponse mockResponse = new MachineResponse(
+                "SEM-01", "Surface Scan (SEM)", "exp_sem",
+                MachineState.PROCESSING, 25, 18,
+                List.of("W-1001", "W-1002"), null, 72,
+                List.of("MW", "JS")
         );
-        when(machineService.getMachineDashboards()).thenReturn(List.of(mockDto));
+        when(machineService.findAll()).thenReturn(List.of(mockResponse));
 
-        // Act
-        List<MachineDashboardDto> response = controller.getMachines();
+        ResponseEntity<List<MachineResponse>> response = controller.getAll();
 
-        // Assert
-        assertThat(response).hasSize(1);
-        assertThat(response.get(0).id()).isEqualTo("SEM-01");
-        assertThat(response.get(0).name()).isEqualTo("Surface Scan (SEM)");
-        assertThat(response.get(0).cap()).isEqualTo(25);
-        assertThat(response.get(0).state()).isEqualTo("PROCESSING");
-        assertThat(response.get(0).currentUtil()).isEqualTo(72);
-        assertThat(response.get(0).loadedCount()).isEqualTo(18);
-        assertThat(response.get(0).error()).isNull();
+        assertThat(response.getStatusCode().value()).isEqualTo(200);
+        assertThat(response.getBody()).hasSize(1);
+        MachineResponse m = response.getBody().get(0);
+        assertThat(m.getId()).isEqualTo("SEM-01");
+        assertThat(m.getName()).isEqualTo("Surface Scan (SEM)");
+        assertThat(m.getCap()).isEqualTo(25);
+        assertThat(m.getState()).isEqualTo(MachineState.PROCESSING);
+        assertThat(m.getCurrentUtil()).isEqualTo(72);
+        assertThat(m.getLoadedCount()).isEqualTo(18);
+        assertThat(m.getOwners()).containsExactly("MW", "JS");
+        assertThat(m.getError()).isNull();
     }
 }

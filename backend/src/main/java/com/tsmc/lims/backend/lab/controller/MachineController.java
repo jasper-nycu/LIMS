@@ -6,6 +6,7 @@ import com.tsmc.lims.backend.lab.dto.EmgUnloadRequest;
 import com.tsmc.lims.backend.lab.dto.MachineLogEntry;
 import com.tsmc.lims.backend.lab.dto.MachineResponse;
 import com.tsmc.lims.backend.lab.dto.NameRequest;
+import com.tsmc.lims.backend.lab.dto.UtilizationPoint;
 import com.tsmc.lims.backend.lab.service.MachineLogService;
 import com.tsmc.lims.backend.lab.service.MachineService;
 import jakarta.validation.Valid;
@@ -27,8 +28,8 @@ public class MachineController {
     private final MachineLogService machineLogService;
 
     @GetMapping
-    public ResponseEntity<ApiResponse<List<MachineResponse>>> getAll() {
-        return ResponseEntity.ok(ApiResponse.ok("OK", machineService.findAll()));
+    public ResponseEntity<List<MachineResponse>> getAll() {
+        return ResponseEntity.ok(machineService.findAll());
     }
 
     @GetMapping("/{id}")
@@ -107,6 +108,13 @@ public class MachineController {
     @GetMapping("/{id}/logs")
     public ResponseEntity<ApiResponse<List<MachineLogEntry>>> getLogs(@PathVariable String id) {
         return ResponseEntity.ok(ApiResponse.ok("OK", machineLogService.getLogs(id)));
+    }
+
+    @GetMapping("/{id}/utilization-history")
+    public ResponseEntity<ApiResponse<List<UtilizationPoint>>> getUtilizationHistory(
+            @PathVariable String id,
+            @RequestParam(defaultValue = "168") int hours) {
+        return ResponseEntity.ok(ApiResponse.ok("OK", machineLogService.getUtilizationHistory(id, hours)));
     }
 
     @GetMapping("/{id}/logs/download")

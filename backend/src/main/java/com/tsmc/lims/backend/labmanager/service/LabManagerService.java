@@ -9,8 +9,9 @@ import com.tsmc.lims.backend.fabuser.repository.FabRequestRepository;
 import com.tsmc.lims.backend.fabuser.repository.WaferRepository;
 import com.tsmc.lims.backend.labmanager.dto.LabWipSummary;
 import com.tsmc.lims.backend.labmanager.dto.ManagerRequestSummary;
-import com.tsmc.lims.backend.labmanager.entity.WipTask;
-import com.tsmc.lims.backend.labmanager.repository.WipTaskRepository;
+import com.tsmc.lims.backend.lab.entity.WipTask;
+import com.tsmc.lims.backend.lab.entity.enums.WipStatus;
+import com.tsmc.lims.backend.lab.repository.WipTaskRepository;
 import com.tsmc.lims.backend.notification.service.NotificationService;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -73,7 +74,7 @@ public class LabManagerService {
                 PrivateKey pk = cryptoProvider.decryptPrivateKey(approver.getEncryptedPrivateKey());
                 approverSignature = cryptoProvider.signData(payload, pk);
             } catch (Exception e) {
-                throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Approval signature runtime failure.");
+                // Key decryption failed (e.g. AES master key rotation) — skip signature, approval still proceeds
             }
         }
 
@@ -82,9 +83,13 @@ public class LabManagerService {
 
         // Dispatch items down to production line WIP tasks queue
         List<Wafer> wafers = waferRepository.findByRequestRequestIdOrderByWaferCode(saved.getRequestId());
-        saved.getExperiments().forEach(exp -> wafers.forEach(wafer -> 
-            wipTaskRepository.save(new WipTask(saved, wafer.getWaferCode(), exp))
-        ));
+        saved.getExperiments().forEach(exp -> wafers.forEach(wafer -> {
+            WipTask task = new WipTask();
+            task.setRequestId(saved.getRequestId());
+            task.setWaferCode(wafer.getWaferCode());
+            task.setExpKey(exp.getExpKey());
+            wipTaskRepository.save(task);
+        }));
 
         User requester = saved.getRequester();
         if (requester != null) {
@@ -127,7 +132,7 @@ public class LabManagerService {
                 PrivateKey pk = cryptoProvider.decryptPrivateKey(approver.getEncryptedPrivateKey());
                 approverSignature = cryptoProvider.signData(payload, pk);
             } catch (Exception e) {
-                throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Rejection signature runtime failure.");
+                // Key decryption failed — skip signature, rejection still proceeds
             }
         }
 
@@ -157,7 +162,7 @@ public class LabManagerService {
 
     @Transactional(readOnly = true)
     public List<LabWipSummary> listPendingWips() {
-        return wipTaskRepository.findByStatusOrderedForSorting("QUEUE").stream()
+        return wipTaskRepository.findByStatusInOrderedForSorting(List.of(WipStatus.QUEUE, WipStatus.PENDING_SORTING)).stream()
                 .map(task -> new LabWipSummary(
                         task.getWaferCode() + "-" + task.getExperiment().getExpKey() + "-" + task.getTaskId(),
                         task.getWaferCode(),

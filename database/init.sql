@@ -126,6 +126,9 @@ CREATE TABLE IF NOT EXISTS machine_logs (
     message TEXT NOT NULL
 );
 
+ALTER TABLE machine_logs ADD COLUMN IF NOT EXISTS utilization INT;
+ALTER TABLE machine_logs ADD COLUMN IF NOT EXISTS machine_state VARCHAR(20);
+
 CREATE INDEX IF NOT EXISTS idx_machine_logs_machine_id ON machine_logs(machine_id);
 CREATE INDEX IF NOT EXISTS idx_machine_logs_created_at ON machine_logs(created_at);
 
@@ -218,27 +221,42 @@ ON CONFLICT (request_id) DO NOTHING;
 
 -- Wafers: 3 for SEM, 2 for Bake, 2 for TEM, 1 for FIB (cap=1), 3 for E-Test, 2 for XRD
 INSERT INTO wafers (request_id, wafer_code) VALUES
-    ('REQ-TEST-001', 'W-0001'), ('REQ-TEST-001', 'W-0002'), ('REQ-TEST-001', 'W-0003'),
-    ('REQ-TEST-002', 'W-0004'), ('REQ-TEST-002', 'W-0005'),
-    ('REQ-TEST-003', 'W-0006'), ('REQ-TEST-003', 'W-0007'),
-    ('REQ-TEST-004', 'W-0008'),
-    ('REQ-TEST-005', 'W-0009'), ('REQ-TEST-005', 'W-0010'), ('REQ-TEST-005', 'W-0011'),
-    ('REQ-TEST-006', 'W-0012'), ('REQ-TEST-006', 'W-0013')
+    ('REQ-TEST-001', 'W-1021'), ('REQ-TEST-001', 'W-1022'), ('REQ-TEST-001', 'W-1023'),
+    ('REQ-TEST-002', 'W-2034'), ('REQ-TEST-002', 'W-2035'),
+    ('REQ-TEST-003', 'W-3041'), ('REQ-TEST-003', 'W-3042'),
+    ('REQ-TEST-004', 'W-4051'),
+    ('REQ-TEST-005', 'W-5062'), ('REQ-TEST-005', 'W-5063'), ('REQ-TEST-005', 'W-5064'),
+    ('REQ-TEST-006', 'W-6071'), ('REQ-TEST-006', 'W-6072')
 ON CONFLICT DO NOTHING;
 
 -- WIP QUEUE tasks — all waiting to be dispatched, with mixed priorities
 INSERT INTO wip_tasks (request_id, wafer_code, exp_key, status, priority) VALUES
-    ('REQ-TEST-001', 'W-0001', 'exp_sem',   'QUEUE', 'URGENT'),
-    ('REQ-TEST-001', 'W-0002', 'exp_sem',   'QUEUE', 'NORMAL'),
-    ('REQ-TEST-001', 'W-0003', 'exp_sem',   'QUEUE', 'NORMAL'),
-    ('REQ-TEST-002', 'W-0004', 'exp_bake',  'QUEUE', 'URGENT'),
-    ('REQ-TEST-002', 'W-0005', 'exp_bake',  'QUEUE', 'NORMAL'),
-    ('REQ-TEST-003', 'W-0006', 'exp_deep',  'QUEUE', 'NORMAL'),
-    ('REQ-TEST-003', 'W-0007', 'exp_deep',  'QUEUE', 'URGENT'),
-    ('REQ-TEST-004', 'W-0008', 'exp_fib',   'QUEUE', 'CRITICAL'),
-    ('REQ-TEST-005', 'W-0009', 'exp_etest', 'QUEUE', 'NORMAL'),
-    ('REQ-TEST-005', 'W-0010', 'exp_etest', 'QUEUE', 'NORMAL'),
-    ('REQ-TEST-005', 'W-0011', 'exp_etest', 'QUEUE', 'URGENT'),
-    ('REQ-TEST-006', 'W-0012', 'exp_xrd',   'QUEUE', 'URGENT'),
-    ('REQ-TEST-006', 'W-0013', 'exp_xrd',   'QUEUE', 'NORMAL')
+    ('REQ-TEST-001', 'W-1021', 'exp_sem',   'QUEUE', 'URGENT'),
+    ('REQ-TEST-001', 'W-1022', 'exp_sem',   'QUEUE', 'NORMAL'),
+    ('REQ-TEST-001', 'W-1023', 'exp_sem',   'QUEUE', 'NORMAL'),
+    ('REQ-TEST-002', 'W-2034', 'exp_bake',  'QUEUE', 'URGENT'),
+    ('REQ-TEST-002', 'W-2035', 'exp_bake',  'QUEUE', 'NORMAL'),
+    ('REQ-TEST-003', 'W-3041', 'exp_deep',  'QUEUE', 'NORMAL'),
+    ('REQ-TEST-003', 'W-3042', 'exp_deep',  'QUEUE', 'URGENT'),
+    ('REQ-TEST-004', 'W-4051', 'exp_fib',   'QUEUE', 'CRITICAL'),
+    ('REQ-TEST-005', 'W-5062', 'exp_etest', 'QUEUE', 'NORMAL'),
+    ('REQ-TEST-005', 'W-5063', 'exp_etest', 'QUEUE', 'NORMAL'),
+    ('REQ-TEST-005', 'W-5064', 'exp_etest', 'QUEUE', 'URGENT'),
+    ('REQ-TEST-006', 'W-6071', 'exp_xrd',   'QUEUE', 'URGENT'),
+    ('REQ-TEST-006', 'W-6072', 'exp_xrd',   'QUEUE', 'NORMAL')
 ON CONFLICT DO NOTHING;
+
+-- 4. Seed Test Users (one per role, password: lims1234)
+-- ------------------------------------------
+-- BCrypt hash generated at cost 10; Spring Security accepts $2b$ prefix.
+-- two_factor_enabled = false so TOTP step is skipped during login.
+INSERT INTO users (employee_id, role_enum, is_active, first_name, last_name, email,
+                   password_hash, password_salt, two_factor_enabled)
+VALUES
+    ('TS-0003', 'ROLE_LAB_OPERATOR',  true, 'Alice',  'Chen', 'alice.chen@lims.test',
+     '$2b$10$4Xg74BZdr0XziFweTFNawu4P8mHNyQEUTQiYFDuOefGkTXdScTcKO', 'BCRYPT_EMBEDDED', false),
+    ('TS-0004', 'ROLE_MACHINE_OWNER', true, 'Bob',    'Wang', 'bob.wang@lims.test',
+     '$2b$10$4Xg74BZdr0XziFweTFNawu4P8mHNyQEUTQiYFDuOefGkTXdScTcKO', 'BCRYPT_EMBEDDED', false),
+    ('TS-0005', 'ROLE_SYSADMIN',      true, 'Carl',   'Su',   'carl.su@lims.test',
+     '$2b$10$4Xg74BZdr0XziFweTFNawu4P8mHNyQEUTQiYFDuOefGkTXdScTcKO', 'BCRYPT_EMBEDDED', false)
+ON CONFLICT (employee_id) DO NOTHING;

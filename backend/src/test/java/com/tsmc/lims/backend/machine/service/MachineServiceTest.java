@@ -1,13 +1,19 @@
 package com.tsmc.lims.backend.machine.service;
 
-import com.tsmc.lims.backend.machine.dto.MachineDashboardDto;
+import com.tsmc.lims.backend.lab.dto.MachineResponse;
+import com.tsmc.lims.backend.lab.entity.Machine;
+import com.tsmc.lims.backend.lab.entity.WipTask;
+import com.tsmc.lims.backend.lab.entity.enums.MachineState;
+import com.tsmc.lims.backend.lab.entity.enums.WipStatus;
+import com.tsmc.lims.backend.lab.repository.MachineRepository;
+import com.tsmc.lims.backend.lab.repository.RecipeRepository;
+import com.tsmc.lims.backend.lab.repository.WipTaskRepository;
+import com.tsmc.lims.backend.fabuser.repository.FabRequestRepository;
+import com.tsmc.lims.backend.lab.service.MachineLogService;
+import com.tsmc.lims.backend.notification.service.NotificationService;
 import org.junit.jupiter.api.Test;
-import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.test.util.ReflectionTestUtils;
 
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
@@ -16,38 +22,57 @@ import static org.mockito.Mockito.when;
 class MachineServiceTest {
 
     @Test
-    void getMachineDashboardsReturnsCapacityAnalyticsContract() {
-        // Arrange
-        JdbcTemplate jdbcTemplate = mock(JdbcTemplate.class);
-        MachineService service = new MachineService();
-        ReflectionTestUtils.setField(service, "jdbcTemplate", jdbcTemplate);
+    void findAll_returnsMachineResponseWithLiveWipCounts() {
+        MachineRepository machineRepository    = mock(MachineRepository.class);
+        WipTaskRepository wipTaskRepository    = mock(WipTaskRepository.class);
+        RecipeRepository  recipeRepository     = mock(RecipeRepository.class);
+        NotificationService notificationService = mock(NotificationService.class);
+        MachineLogService machineLogService    = mock(MachineLogService.class);
+        FabRequestRepository fabRequestRepository = mock(FabRequestRepository.class);
 
-        Map<String, Object> machine = new HashMap<>();
-        machine.put("machine_id", "SEM-01");
-        machine.put("name", "Surface Scan (SEM)");
-        machine.put("capacity", 25);
-        machine.put("state", "PROCESSING");
-        machine.put("current_utilization", 72);
-        machine.put("error_code", null);
+        com.tsmc.lims.backend.lab.service.MachineService service =
+            new com.tsmc.lims.backend.lab.service.MachineService(
+                machineRepository, wipTaskRepository, recipeRepository,
+                notificationService, machineLogService, fabRequestRepository
+            );
 
-        when(jdbcTemplate.queryForList("SELECT machine_id, name, capacity, state, current_utilization, error_code FROM machines"))
-                .thenReturn(List.of(machine));
-        
-        when(jdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM wip_tasks WHERE machine_id = ? AND status = 'PROCESSING'",
-                Integer.class,
-                "SEM-01"
-        )).thenReturn(18);
+        // Build a stubbed Machine entity
+        Machine machine = new Machine();
+        machine.setMachineId("SEM-01");
+        machine.setName("Surface Scan (SEM)");
+        machine.setExpKey("exp_sem");
+        machine.setState(MachineState.PROCESSING);
+        machine.setCapacity(25);
+        machine.setCurrentUtilization(72);
+        machine.setOwners(List.of("MW", "JS"));
 
-        // Act
-        List<MachineDashboardDto> response = service.getMachineDashboards();
+        // Build stubbed WipTasks (18 wafers in PROCESSING)
+        List<WipTask> processingTasks = java.util.stream.IntStream.rangeClosed(1, 18)
+            .mapToObj(i -> {
+                WipTask t = new WipTask();
+                t.setWaferCode("W-10" + String.format("%02d", i));
+                t.setMachineId("SEM-01");
+                t.setStatus(WipStatus.PROCESSING);
+                return t;
+            }).toList();
 
-        // Assert
-        assertThat(response).hasSize(1);
-        assertThat(response.get(0).id()).isEqualTo("SEM-01");
-        assertThat(response.get(0).name()).isEqualTo("Surface Scan (SEM)");
-        assertThat(response.get(0).cap()).isEqualTo(25);
-        assertThat(response.get(0).currentUtil()).isEqualTo(72);
-        assertThat(response.get(0).loadedCount()).isEqualTo(18);
+        when(machineRepository.findAllByOrderByMachineIdAsc()).thenReturn(List.of(machine));
+        when(wipTaskRepository.findByMachineIdAndStatus("SEM-01", WipStatus.PROCESSING))
+            .thenReturn(processingTasks);
+
+        List<MachineResponse> result = service.findAll();
+
+        assertThat(result).hasSize(1);
+        MachineResponse m = result.get(0);
+        assertThat(m.getId()).isEqualTo("SEM-01");
+        assertThat(m.getName()).isEqualTo("Surface Scan (SEM)");
+        assertThat(m.getExpKey()).isEqualTo("exp_sem");
+        assertThat(m.getState()).isEqualTo(MachineState.PROCESSING);
+        assertThat(m.getCap()).isEqualTo(25);
+        assertThat(m.getCurrentUtil()).isEqualTo(72);
+        assertThat(m.getLoadedCount()).isEqualTo(18);
+        assertThat(m.getLoadedWafers()).hasSize(18);
+        assertThat(m.getOwners()).containsExactlyInAnyOrder("MW", "JS");
+        assertThat(m.getError()).isNull();
     }
 }

@@ -32,10 +32,22 @@ public class MachineLog {
     @Column(name = "message", nullable = false, columnDefinition = "TEXT")
     private String message;
 
+    @Column(name = "utilization")
+    private Integer utilization;
+
+    @Column(name = "machine_state", length = 20)
+    private String machineState;
+
     public MachineLog(String machineId, String level, String message) {
         this.machineId = machineId;
         this.level = level;
         this.message = message;
         this.createdAt = LocalDateTime.now();
+    }
+
+    public MachineLog(String machineId, String level, String message, Integer utilization, String machineState) {
+        this(machineId, level, message);
+        this.utilization = utilization;
+        this.machineState = machineState;
     }
 }

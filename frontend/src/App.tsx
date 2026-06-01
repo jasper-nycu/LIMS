@@ -9,6 +9,7 @@ import { CapacityAnalyticsView } from './views/CapacityAnalyticsView';
 import { MyProfileView } from './views/MyProfileView';
 import { AuthView } from './views/AuthView';
 import api from './api/axiosInstance';
+import { getUtilizationHistory } from './api/machineApi';
 
 interface Owner {
   initials: string;
@@ -233,7 +234,27 @@ const App: React.FC = () => {
         const data = res.data;
         setMachines((prev) => {
           const next = { ...prev };
+          const ownerColorPalette = ['bg-slate-600','bg-blue-400','bg-emerald-600','bg-red-500','bg-indigo-500','bg-amber-500','bg-accent-sky','bg-purple-500'];
           data.forEach((m: any) => {
+            if (!next[m.id]) {
+              // Machine missing from state (e.g. cleared on logout) — rebuild from backend
+              next[m.id] = {
+                id: m.id,
+                name: m.name ?? m.id,
+                state: (m.state as MachineState['state']) ?? 'IDLE',
+                loaded: m.loadedWafers ?? [],
+                cap: m.cap ?? 1,
+                expKey: m.expKey ?? '',
+                error: m.error ?? null,
+                currentUtil: m.currentUtil ?? 0,
+                owners: (m.owners ?? []).map((initials: string, idx: number) => ({
+                  initials,
+                  color: ownerColorPalette[idx % ownerColorPalette.length],
+                })),
+                loadedCount: m.loadedCount ?? 0,
+                utilHistory: [{ timestamp: Date.now(), util: m.currentUtil ?? 0 }],
+              };
+            }
             if (next[m.id]) {
               // Preserve existing state but incorporate timestamped history coming from backend when present
               const existing = next[m.id];
@@ -290,6 +311,7 @@ const App: React.FC = () => {
                 ...next[m.id],
                 state: (m.state as MachineState['state']) || next[m.id].state,
                 cap: m.cap || next[m.id].cap,
+                loaded: m.loadedWafers ?? [],
                 currentUtil: incomingCurrentUtil,
                 error: m.error ?? next[m.id].error,
                 loadedCount: m.loadedCount ?? next[m.id].loadedCount,
@@ -306,6 +328,51 @@ const App: React.FC = () => {
 
     fetchMachines();
   }, [user]); // Trigger machine data fetch on user login/logout to ensure we have the latest data when authenticated
+
+  // Fetch utilization history for all machines periodically to keep charts updated
+  useEffect(() => {
+    if (!user || Object.keys(machines).length === 0) return;
+
+    const fetchAllHistories = async () => {
+      try {
+        // Fetch 7-day history (168 hours) for each machine
+        const historyPromises = Object.keys(machines).map(machineId =>
+          getUtilizationHistory(machineId, 168)
+            .then(history => ({ machineId, history }))
+            .catch(err => {
+              console.warn(`Failed to fetch utilization history for ${machineId}:`, err);
+              return { machineId, history: [] };
+            })
+        );
+
+        const results = await Promise.all(historyPromises);
+
+        // Update each machine with its history
+        setMachines(prev => {
+          const next = { ...prev };
+          results.forEach(({ machineId, history }) => {
+            if (history && history.length > 0 && next[machineId]) {
+              const convertedHistory = history.map((point: any) => ({
+                timestamp: Number(point.timestamp),
+                util: Number(point.utilization ?? point.util ?? 0),
+                state: point.state
+              }));
+              next[machineId].utilHistory = convertedHistory;
+            }
+          });
+          return next;
+        });
+      } catch (error) {
+        console.warn('Failed to fetch utilization histories:', error);
+      }
+    };
+
+    // Fetch on initial load and then every 30 seconds
+    fetchAllHistories();
+    const intervalId = setInterval(fetchAllHistories, 30000);
+
+    return () => clearInterval(intervalId);
+  }, [user, Object.keys(machines).length]);
 
   useEffect(() => {
     const handleAuthExpired = () => {

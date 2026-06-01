@@ -2,7 +2,7 @@ package com.tsmc.lims.backend.labmanager.dto;
 
 public record LabWipSummary(
         String id,
-        String waferId,
+        String waferCode,
         String expKey,
         String priority
 ) {
