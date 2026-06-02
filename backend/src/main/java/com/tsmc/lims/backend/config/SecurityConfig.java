@@ -25,7 +25,7 @@ public class SecurityConfig {
     private JwtAuthenticationFilter jwtAuthFilter;
 
     // Support both local Vite dev server and containerized Nginx production server
-    @Value("${app.cors.allowed-origins:http://localhost:5173,http://localhost}")
+    @Value("${app.cors.allowed-origins:http://localhost:5173,http://localhost,http://20.212.250.131,https://lims.studio,https://www.lims.studio}")
     private List<String> allowedOrigins;
 
     /**
