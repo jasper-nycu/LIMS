@@ -5,7 +5,7 @@ import axios from 'axios';
  * We point the baseURL directly to our newly secured /api/v1 backend routes.
  */
 const api = axios.create({
-    baseURL: 'http://localhost:8080/api/v1',
+    baseURL: '/api/v1',
     timeout: 10000, // 10 seconds timeout
     headers: {
         'Content-Type': 'application/json',

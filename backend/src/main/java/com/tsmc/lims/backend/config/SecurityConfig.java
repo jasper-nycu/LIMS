@@ -24,8 +24,8 @@ public class SecurityConfig {
     @Autowired
     private JwtAuthenticationFilter jwtAuthFilter;
 
-    // Read allowed origins from application.properties with a default value of http://localhost:5173 (Vite dev server)
-    @Value("${app.cors.allowed-origins:http://localhost:5173}")
+    // Support both local Vite dev server and containerized Nginx production server
+    @Value("${app.cors.allowed-origins:http://localhost:5173,http://localhost}")
     private List<String> allowedOrigins;
 
     /**
