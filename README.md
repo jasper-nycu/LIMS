@@ -14,7 +14,7 @@ LIMS (Laboratory Information Management System) 是一個專為高科技廠區�
 
 本專案採用現代化微服務單體儲存庫 (Monorepo) 架構，透過 **Docker Compose** 實施多容器整合編排。全系統共劃分為 4 個獨立容器節點，共享底層橋接網路 (`bridge_network`)：
 
-1. **`lims_frontend` (Vite + React 18)**: 對外對照本機 `5173` 埠，透過高效率的 Volume 掛載實作源碼雙向綁定，支援熱插拔 (HMR) 偵測。
+1. **`lims_frontend` (Nginx + Production Build)**: 對外對照本機標準 `80` 埠，採用多階段分流建置將前端編派好的靜態檔案交由輕量、高併發的 Nginx 伺服器進行分發，完全符合雲端生產環境部署規格。
 2. **`lims_backend` (Spring Boot 3.x + Java 25)**: 對外對照本機 `8080` 埠，採用多階段安全建置 (Multi-stage Build)，內部透過服務域名 `postgres:5432` 與資料庫實作內部網路直連，阻絕外網直攻。
 3. **`lims_db` (PostgreSQL 15)**: 廠區與實驗室實體資料持久化中心，配置 pgdata 資料卷防丟失機制，並掛載 init.sql 實作開機自動化 DDL 結構初始化與 60 筆 WIP 測試數據注入。為落實嚴謹的存取控制，本節點與初始化腳本中絕對不包含任何預設測試帳號 (No Default Credentials)。
 4. **`lims_pgadmin` (pgAdmin 4)**: 圖形化資料庫管理中樞，跑在本機 `5050` 埠，方便開發團隊即時抽查通知審計日誌與機台流轉狀態。
@@ -101,7 +101,7 @@ docker compose up -d --build
 
 ### Step 3: 驗證系統存取點
 
-* **前端 Web 介面**: `http://localhost:80`
+* **前端 Web 介面**: `http://localhost` (走標準 HTTP 80 埠，無需附加連接埠號)
 * **後端 API 網關**: `http://localhost:8080/api/v1`
 * **資料庫管理工具 (pgAdmin)**: `http://localhost:5050` (登入帳密請參閱 `.env` 設定)
 
