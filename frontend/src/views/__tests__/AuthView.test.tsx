@@ -3,6 +3,26 @@ import { render, screen, fireEvent, cleanup, act } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { AuthView } from '../AuthView';
 
+// Mock axiosInstance to intercept and simulate backend RESTful responses
+vi.mock('../../api/axiosInstance', () => ({
+  default: {
+    post: vi.fn((url: string) => {
+      if (url.includes('/login')) {
+        return Promise.resolve({
+          data: { token: 'mock-jwt', user: { empId: 'TS-0001', name: 'Jasper Li', role: 'ROLE_SYSADMIN', avatarBase64: '' } }
+        });
+      }
+      if (url.includes('/register/initiate')) {
+        return Promise.resolve({ data: { message: 'Sent' } });
+      }
+      if (url.includes('/register/verify')) {
+        return Promise.resolve({ data: { message: 'Registration successful! Please sign in with your new account.' } });
+      }
+      return Promise.reject({ response: { data: { message: 'Not Found' } } });
+    })
+  }
+}));
+
 describe('AuthView - Enterprise Authentication & Verification Testing Suite', () => {
   const mockOnLanguageChange = vi.fn();
   const mockOnLoginSuccess = vi.fn();
@@ -18,39 +38,6 @@ describe('AuthView - Enterprise Authentication & Verification Testing Suite', ()
   beforeEach(() => {
     vi.clearAllMocks();
     vi.useFakeTimers(); // Intercept real-world clocks for deterministic TOTP countdown intervals
-
-    // --- NEW: Mock global fetch API to simulate Backend Responses ---
-    vi.stubGlobal('fetch', vi.fn().mockImplementation((url: string) => {
-      if (url.includes('/login')) {
-        const data = { token: 'mock-jwt', user: { name: 'Jasper Li', role: 'ROLE_SYSADMIN' } };
-        return Promise.resolve({
-          ok: true,
-          json: () => Promise.resolve(data),
-          text: () => Promise.resolve(JSON.stringify(data))
-        });
-      }
-      if (url.includes('/register/initiate')) {
-        const data = { message: 'Sent' };
-        return Promise.resolve({
-          ok: true,
-          json: () => Promise.resolve(data),
-          text: () => Promise.resolve(JSON.stringify(data))
-        });
-      }
-      if (url.includes('/register/verify')) {
-        const data = { message: 'Registration successful! Please sign in with your new account.' };
-        return Promise.resolve({
-          ok: true,
-          json: () => Promise.resolve(data),
-          text: () => Promise.resolve(JSON.stringify(data))
-        });
-      }
-      return Promise.resolve({ 
-        ok: false, 
-        json: () => Promise.resolve({}),
-        text: () => Promise.resolve("{}")
-      });
-    }));
   });
 
   afterEach(() => {
