@@ -22,6 +22,8 @@ erDiagram
     
     MACHINE ||--o{ WIP_TASK : "executes"
     MACHINE ||--|{ RECIPE : "configures"
+    MACHINE ||--|{ MACHINE_LOGS : "generates"
+    MACHINE ||--|{ MACHINE_OWNERS : "has"
 
     %% ------------------------------------------
     %% Entity Definitions
@@ -103,7 +105,25 @@ erDiagram
         string exp_key FK
         string machine_id FK "Assigned during dispatch"
         string status "QUEUE/PROCESSING/COMPLETED"
+        string recipe_id FK "Added incrementally"
+        string priority "Added incrementally"
         datetime dispatched_at
+        datetime completed_at "Added incrementally"
+    }
+    
+    MACHINE_LOGS {
+        int id PK "BIGSERIAL"
+        string machine_id FK
+        datetime created_at
+        string level
+        text message
+        int utilization
+        string machine_state
+    }
+    
+    MACHINE_OWNERS {
+        string machine_id PK, FK
+        string owner_initials PK
     }
 
     MACHINE {
@@ -114,6 +134,11 @@ erDiagram
         string state "IDLE/PROCESSING/ALARM/MAINTENANCE"
         int current_utilization "Percentage (0-100)"
         string error_code
+    }
+
+    REQUEST_EXPERIMENT {
+        string request_id PK, FK
+        string exp_key PK, FK
     }
 
     RECIPE {

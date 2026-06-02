@@ -27,21 +27,30 @@ backend/
 │   ├── fabuser/                        # 廠區委託模組 (Fab Request Module)
 │   │   ├── controller/
 │   │   ├── dto/
-│   │   ├── entity/                     # FabRequest, Wafer, Laboratory, Experiment 資料表對映
+│   │   ├── entity/
 │   │   ├── repository/
 │   │   └── service/
 │   │
 │   ├── labmanager/                     # 實驗室管理模組 (Lab Manager Module)
 │   │   ├── controller/
 │   │   ├── dto/
-│   │   ├── entity/                     # WipTask 資料表對映
+│   │   ├── entity/
+│   │   ├── repository/
+│   │   └── service/
+│   │
+│   ├── lab/                            # 實驗室操作模組 (Lab Operations Module)
+│   │   ├── config/
+│   │   ├── controller/
+│   │   ├── dto/
+│   │   ├── entity/
+│   │   ├── exception/
 │   │   ├── repository/
 │   │   └── service/
 │   │
 │   ├── machine/                        # 機台與稼動率管理模組 (Machine Operations)
-│   │   ├── controller/                 # 負責提供儀表板所需的機台狀態 API
-│   │   ├── dto/                        # 定義 MachineDashboardDto，確保資料回傳格式明確
-│   │   └── service/                    # 負責組合機台資料與 WIP 正在處理的晶圓數量
+│   │   ├── controller/
+│   │   ├── dto/
+│   │   └── service/
 │   │
 │   ├── notification/                   # 系統稽核日誌模組 (Audit Trail & Observability)
 │   │   ├── controller/                 # 負責提供前端登出時寫入日誌的端點

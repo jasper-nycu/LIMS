@@ -7,9 +7,8 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
 
-@RestController // All endpoints in this controller will produce JSON responses by default, aligning with frontend expectations for API communication.
-@RequestMapping("/api/v1/auth") // api: separate frontend (HTML) and backend (REST API); v1: versioning for future-proofing and backward compatibility.
-@CrossOrigin(origins = "http://localhost:5173") // Align with frontend Vite dev server port
+@RestController
+@RequestMapping("/api/v1/auth")
 public class AuthController {
 
     // Controller now ONLY depends on Service, NEVER the Repository.

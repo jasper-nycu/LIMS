@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { type UserProfile } from '../components/layout/Header';
 import { TotpInput } from '../components/layout/TotpInput';
+import api from '../api/axiosInstance'
 
 interface AuthViewProps {
   language: 'en' | 'tw';
@@ -123,32 +124,8 @@ export const AuthView: React.FC<AuthViewProps> = ({
     e.preventDefault();
     
     try {
-      const response = await fetch('http://localhost:8080/api/v1/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(loginForm)
-      });
-
-      // Read as text first to safely prevent JSON parsing crashes on HTTP 403/500 errors
-      const responseText = await response.text();
-      let responseData: any = {};
-      try {
-        responseData = responseText ? JSON.parse(responseText) : {};
-      } catch (e) {
-        // Fallback for non-JSON content
-      }
-
-      if (!response.ok) {
-        setAlertModal({ 
-          show: true, 
-          title: language === 'en' ? 'Login Failed' : '登入失敗', 
-          message: responseData.message || `HTTP Error ${response.status}`, 
-          type: 'error' 
-        });
-        return;
-      }
-
-      const data = responseData;
+      const response = await api.post('/auth/login', loginForm);
+      const data = response.data;
       
       // Store the JWT token securely (localStorage is fine for this phase)
       localStorage.setItem('lims_jwt', data.token);
@@ -160,11 +137,11 @@ export const AuthView: React.FC<AuthViewProps> = ({
         role: data.user.role ?? data.user.roleEnum ?? '',
         avatarBase64: data.user.avatarBase64,
       });
-    } catch (error) {
+    } catch (error: any) {
       setAlertModal({ 
         show: true, 
-        title: language === 'en' ? 'Network Error' : '連線失敗', 
-        message: 'Cannot connect to backend server.', 
+        title: language === 'en' ? 'Login Failed' : '登入失敗', 
+        message: error.response?.data?.message || 'Cannot connect to backend server or invalid credentials.', 
         type: 'error' 
       });
     }
@@ -187,34 +164,19 @@ export const AuthView: React.FC<AuthViewProps> = ({
 
     try {
       // Initiate Registration and Trigger TOTP Email
-      const response = await fetch('http://localhost:8080/api/v1/auth/register/initiate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(regForm)
-      });
-
-      const responseText = await response.text();
-      let responseData: any = {};
-      try {
-        responseData = responseText ? JSON.parse(responseText) : {};
-      } catch (e) {}
-
-      if (!response.ok) {
-        setAlertModal({ 
-          show: true, 
-          title: language === 'en' ? 'Registration Error' : '註冊失敗', 
-          message: responseData.message || `HTTP Error ${response.status}: Access Denied or Security Blocked.`, 
-          type: 'error' 
-        });
-        return;
-      }
+      await api.post('/auth/register/initiate', regForm);
 
       // Open verification process window and run timer loops ONLY if backend succeeded
       setTotpCode('');
       setShowTotpModal(true);
       startCountdown();
-    } catch (error) {
-      setAlertModal({ show: true, title: language === 'en' ? 'Network Error' : '連線失敗', message: 'Cannot connect to backend server.', type: 'error' });
+    } catch (error: any) {
+      setAlertModal({ 
+        show: true, 
+        title: language === 'en' ? 'Registration Error' : '註冊失敗', 
+        message: error.response?.data?.message || 'Cannot connect to backend server or security blocked.', 
+        type: 'error' 
+      });
     }
   };
 
@@ -237,29 +199,8 @@ export const AuthView: React.FC<AuthViewProps> = ({
 
     try {
       // Verify TOTP and provision user to PostgreSQL
-      const response = await fetch('http://localhost:8080/api/v1/auth/register/verify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: regForm.email, code: totpCode })
-      });
-
-      const responseText = await response.text();
-      let responseData: any = {};
-      try {
-        responseData = responseText ? JSON.parse(responseText) : {};
-      } catch (e) {}
-
-      if (!response.ok) {
-        setAlertModal({ 
-          show: true, 
-          title: language === 'en' ? 'Verification Error' : '驗證失敗', 
-          message: responseData.message || `HTTP Error ${response.status}`, 
-          type: 'error' 
-        });
-        return;
-      }
-
-      const data = responseData;
+      const response = await api.post('/auth/register/verify', { email: regForm.email, code: totpCode });
+      const data = response.data;
 
       // Clean up UI state on success
       if (timerRef.current) clearInterval(timerRef.current);
@@ -268,8 +209,13 @@ export const AuthView: React.FC<AuthViewProps> = ({
       setIsRegisterMode(false); // Route back to sign in segment
 
       setAlertModal({ show: true, title: language === 'en' ? 'Registration Successful' : '註冊成功', message: data.message, type: 'success' });
-    } catch (error) {
-      setAlertModal({ show: true, title: language === 'en' ? 'Network Error' : '連線失敗', message: 'Cannot connect to backend server.', type: 'error' });
+    } catch (error: any) {
+      setAlertModal({ 
+        show: true, 
+        title: language === 'en' ? 'Verification Error' : '驗證失敗', 
+        message: error.response?.data?.message || 'Cannot connect to backend server or invalid code.', 
+        type: 'error' 
+      });
     }
   };
 

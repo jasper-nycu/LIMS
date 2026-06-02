@@ -1,7 +1,6 @@
 package com.tsmc.lims.backend.labmanager.controller;
 
 import com.tsmc.lims.backend.labmanager.dto.DecisionRequest;
-import com.tsmc.lims.backend.labmanager.dto.LabWipSummary;
 import com.tsmc.lims.backend.labmanager.dto.ManagerRequestSummary;
 import com.tsmc.lims.backend.labmanager.service.LabManagerService;
 import org.junit.jupiter.api.BeforeEach;

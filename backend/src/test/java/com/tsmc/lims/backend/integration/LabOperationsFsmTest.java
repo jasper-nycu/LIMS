@@ -1,4 +1,4 @@
-package com.tsmc.lims.backend;
+package com.tsmc.lims.backend.integration;
 
 import com.tsmc.lims.backend.auth.entity.Role;
 import com.tsmc.lims.backend.auth.entity.User;
