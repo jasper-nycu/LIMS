@@ -32,6 +32,20 @@ services:
       - postgres
     restart: unless-stopped
 
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: lims_frontend
+    ports:
+      - "80:80"       # Map the host's HTTP port 80 directly to Nginx's port 80
+    # volumes:
+    #   - ./frontend:/app
+    #   - /app/node_modules
+    depends_on:
+      - backend
+    restart: unless-stopped
+
   pgadmin:
     image: dpage/pgadmin4
     container_name: lims_pgadmin
