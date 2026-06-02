@@ -9,6 +9,7 @@ import com.tsmc.lims.backend.fabuser.entity.FabRequest;
 import com.tsmc.lims.backend.fabuser.entity.Laboratory;
 import com.tsmc.lims.backend.lab.dto.DispatchRequest;
 import com.tsmc.lims.backend.lab.dto.EmgUnloadRequest;
+import com.tsmc.lims.backend.lab.dto.NameRequest;
 import com.tsmc.lims.backend.lab.dto.MachineResponse;
 import com.tsmc.lims.backend.lab.entity.Machine;
 import com.tsmc.lims.backend.lab.entity.WipTask;
@@ -283,5 +284,18 @@ class LabOperationsFsmTest {
     void testMachineNotFound() {
         assertThatThrownBy(() -> machineService.findById("NON-EXISTENT"))
                 .hasMessageContaining("Machine not found");
+    }
+
+    // ── Recipe Management ─────────────────────────────────────────────────────
+
+    @Test
+    @DisplayName("Recipe: addRecipe returns updated list containing the new recipe")
+    void testAddRecipe() {
+        NameRequest request = new NameRequest();
+        request.setName("Bake-150C-4H");
+
+        List<String> recipes = machineService.addRecipe(MACHINE_ID, request);
+
+        assertThat(recipes).contains("Bake-150C-4H");
     }
 }

@@ -103,27 +103,27 @@ export async function setOnline(id: string): Promise<MachineDTO> {
 // ── Recipes ───────────────────────────────────────────────────────────────
 
 export async function getRecipes(id: string): Promise<string[]> {
-  return handleResponse<string[]>(await fetch(`${base}/${encodeURIComponent(id)}/recipes`)) ?? [];
+  return (await handleResponse<string[]>(await fetch(`${base}/${encodeURIComponent(id)}/recipes`))) ?? [];
 }
 
 export async function addRecipe(id: string, name: string): Promise<string[]> {
-  return handleResponse<string[]>(await fetch(`${base}/${encodeURIComponent(id)}/recipes`, {
+  return (await handleResponse<string[]>(await fetch(`${base}/${encodeURIComponent(id)}/recipes`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ name }),
-  })) ?? [];
+  }))) ?? [];
 }
 
 export async function deleteRecipe(id: string, name: string): Promise<string[]> {
-  return handleResponse<string[]>(await fetch(`${base}/${encodeURIComponent(id)}/recipes/${encodeURIComponent(name)}`, {
+  return (await handleResponse<string[]>(await fetch(`${base}/${encodeURIComponent(id)}/recipes/${encodeURIComponent(name)}`, {
     method: 'DELETE',
-  })) ?? [];
+  }))) ?? [];
 }
 
 // ── Logs ──────────────────────────────────────────────────────────────────
 
 export async function getMachineLogs(id: string): Promise<LogEntry[]> {
-  return handleResponse<LogEntry[]>(await fetch(`${base}/${encodeURIComponent(id)}/logs`)) ?? [];
+  return (await handleResponse<LogEntry[]>(await fetch(`${base}/${encodeURIComponent(id)}/logs`))) ?? [];
 }
 
 export function getLogsDownloadUrl(id: string): string {
@@ -133,15 +133,15 @@ export function getLogsDownloadUrl(id: string): string {
 // ── Utilization History ───────────────────────────────────────────────────
 
 export async function getUtilizationHistory(id: string, hours: number = 168): Promise<UtilizationPoint[]> {
-  return handleResponse<UtilizationPoint[]>(await fetch(`${base}/${encodeURIComponent(id)}/utilization-history?hours=${hours}`)) ?? [];
+  return (await handleResponse<UtilizationPoint[]>(await fetch(`${base}/${encodeURIComponent(id)}/utilization-history?hours=${hours}`))) ?? [];
 }
 
 // ── WIP ───────────────────────────────────────────────────────────────────
 
 export async function getWipQueue(): Promise<WipTaskDTO[]> {
-  return handleResponse<WipTaskDTO[]>(await fetch(wipBase)) ?? [];
+  return (await handleResponse<WipTaskDTO[]>(await fetch(wipBase))) ?? [];
 }
 
 export async function getWipPendingSorting(): Promise<WipTaskDTO[]> {
-  return handleResponse<WipTaskDTO[]>(await fetch(`${wipBase}/pending-sorting`)) ?? [];
+  return (await handleResponse<WipTaskDTO[]>(await fetch(`${wipBase}/pending-sorting`))) ?? [];
 }
