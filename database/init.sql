@@ -245,18 +245,3 @@ INSERT INTO wip_tasks (request_id, wafer_code, exp_key, status, priority) VALUES
     ('REQ-TEST-006', 'W-6071', 'exp_xrd',   'QUEUE', 'URGENT'),
     ('REQ-TEST-006', 'W-6072', 'exp_xrd',   'QUEUE', 'NORMAL')
 ON CONFLICT DO NOTHING;
-
--- 4. Seed Test Users (one per role, password: lims1234)
--- ------------------------------------------
--- BCrypt hash generated at cost 10; Spring Security accepts $2b$ prefix.
--- two_factor_enabled = false so TOTP step is skipped during login.
-INSERT INTO users (employee_id, role_enum, is_active, first_name, last_name, email,
-                   password_hash, password_salt, two_factor_enabled)
-VALUES
-    ('TS-0003', 'ROLE_LAB_OPERATOR',  true, 'Alice',  'Chen', 'alice.chen@lims.test',
-     '$2b$10$4Xg74BZdr0XziFweTFNawu4P8mHNyQEUTQiYFDuOefGkTXdScTcKO', 'BCRYPT_EMBEDDED', false),
-    ('TS-0004', 'ROLE_MACHINE_OWNER', true, 'Bob',    'Wang', 'bob.wang@lims.test',
-     '$2b$10$4Xg74BZdr0XziFweTFNawu4P8mHNyQEUTQiYFDuOefGkTXdScTcKO', 'BCRYPT_EMBEDDED', false),
-    ('TS-0005', 'ROLE_SYSADMIN',      true, 'Carl',   'Su',   'carl.su@lims.test',
-     '$2b$10$4Xg74BZdr0XziFweTFNawu4P8mHNyQEUTQiYFDuOefGkTXdScTcKO', 'BCRYPT_EMBEDDED', false)
-ON CONFLICT (employee_id) DO NOTHING;
