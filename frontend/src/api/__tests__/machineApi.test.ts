@@ -1,5 +1,5 @@
 // src/api/__tests__/machineApi.test.ts
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
   getMachines,
   getMachine,
@@ -67,7 +67,6 @@ describe('getMachines', () => {
 
     const result = await getMachines();
 
-    const fetchSpy = vi.spyOn(globalThis, 'fetch');
     expect(result).toEqual([stubMachine]);
   });
 
