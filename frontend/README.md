@@ -7,10 +7,16 @@
 ```text
 frontend/
 ├── src/
+│   ├── api/                          # 網路請求與即時通訊服務層 (API & Socket Layer)
+│   │   ├── axiosInstance.ts          # 封裝 Axios 實例，集中處理 JWT 攜帶與 401/403 全域錯誤攔截
+│   │   ├── machineApi.ts             # 機台狀態控制、WIP 任務派工與產能歷史數據抓取的 RESTful API 集合
+│   │   └── notificationSocket.ts     # 封裝 STOMP/WebSocket，負責零延遲 (Zero-latency) 的雙向通知推播
+│   │
 │   ├── components/layout/            # 全域佈局重複使用組件
 │   │   ├── __tests__/                # 佈局組件的單元測試 (Header, Sidebar 測試)
 │   │   ├── Header.tsx                # 頂部導覽列 (語系切換、通知、使用者資訊)
-│   │   └── Sidebar.tsx               # 側邊導覽選單 (負責視圖導覽與 RWD 縮放)
+│   │   ├── Sidebar.tsx               # 側邊導覽選單 (負責視圖導覽與 RWD 縮放)
+│   │   └── TotpInput.tsx             # 2FA 輸入驗證碼的組件
 │   │
 │   ├── views/                        # 頁面視圖
 │   │   ├── __tests__/                # 頁面邏輯單元測試 (Auth, FabRequest, LabOps 等測試)
